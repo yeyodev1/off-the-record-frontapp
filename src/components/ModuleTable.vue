@@ -18,7 +18,7 @@ function formatValue(value: unknown, type?: ModuleColumn['type']) {
   }
 
   if (type === 'boolean') {
-    return value ? 'Si' : 'No'
+    return value ? 'Sí' : 'No'
   }
 
   if (type === 'date') {
@@ -41,57 +41,63 @@ function getPrimaryValue(row: Record<string, unknown>) {
 
 <template>
   <div class="table-shell">
-    <div class="mobile-list">
-      <div v-if="loading" class="empty-state">Cargando...</div>
-      <div v-else-if="!rows.length" class="empty-state">Sin resultados</div>
+    <div v-if="loading" class="table-state surface-card">Cargando registros...</div>
+    <div v-else-if="!rows.length" class="table-state surface-card">Sin resultados</div>
 
-      <article v-for="row in rows" v-else :key="String(row._id || row.id)" class="row-card">
-        <header class="row-card__header">
-          <div>
-            <span class="row-card__eyebrow">{{ props.columns[0]?.label || 'Registro' }}</span>
-            <strong>{{ getPrimaryValue(row) }}</strong>
+    <template v-else>
+      <div class="table-shell__mobile">
+        <article v-for="row in rows" :key="String(row._id || row.id)" class="row-card surface-card">
+          <header class="row-card__header">
+            <div>
+              <span class="row-card__eyebrow">{{ props.columns[0]?.label || 'Registro' }}</span>
+              <strong>{{ getPrimaryValue(row) }}</strong>
+            </div>
+
+            <div class="row-card__actions">
+              <button type="button" class="secondary-button" @click="$emit('edit', row)">
+                <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>Editar
+              </button>
+              <button type="button" class="danger-button" @click="$emit('remove', row)">
+                <i class="fa-solid fa-trash" aria-hidden="true"></i>Eliminar
+              </button>
+            </div>
+          </header>
+
+          <div class="row-card__grid">
+            <div v-for="column in props.columns.slice(1)" :key="column.key">
+              <span>{{ column.label }}</span>
+              <strong>{{ formatValue(row[column.key], column.type) }}</strong>
+            </div>
           </div>
+        </article>
+      </div>
 
-          <div class="actions actions--stacked">
-            <button type="button" @click="$emit('edit', row)"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>Editar</button>
-            <button type="button" class="danger" @click="$emit('remove', row)"><i class="fa-solid fa-trash" aria-hidden="true"></i>Eliminar</button>
-          </div>
-        </header>
-
-        <div class="row-card__grid">
-          <div v-for="column in props.columns.slice(1)" :key="column.key">
-            <span>{{ column.label }}</span>
-            <strong>{{ formatValue(row[column.key], column.type) }}</strong>
-          </div>
-        </div>
-      </article>
-    </div>
-
-    <table class="desktop-table">
-      <thead>
-        <tr>
-          <th v-for="column in props.columns" :key="column.key">{{ column.label }}</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-if="loading">
-          <td :colspan="props.columns.length + 1">Cargando...</td>
-        </tr>
-        <tr v-else-if="!rows.length">
-          <td :colspan="props.columns.length + 1">Sin resultados</td>
-        </tr>
-        <tr v-for="row in rows" v-else :key="String(row._id || row.id)">
-          <td v-for="column in props.columns" :key="column.key">
-            {{ formatValue(row[column.key], column.type) }}
-          </td>
-          <td class="actions">
-            <button type="button" @click="$emit('edit', row)"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>Editar</button>
-            <button type="button" class="danger" @click="$emit('remove', row)"><i class="fa-solid fa-trash" aria-hidden="true"></i>Eliminar</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+      <div class="table-shell__desktop surface-card">
+        <table class="desktop-table">
+          <thead>
+            <tr>
+              <th v-for="column in props.columns" :key="column.key">{{ column.label }}</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in rows" :key="String(row._id || row.id)">
+              <td v-for="column in props.columns" :key="column.key">
+                {{ formatValue(row[column.key], column.type) }}
+              </td>
+              <td class="actions">
+                <button type="button" class="secondary-button" @click="$emit('edit', row)">
+                  <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>Editar
+                </button>
+                <button type="button" class="danger-button" @click="$emit('remove', row)">
+                  <i class="fa-solid fa-trash" aria-hidden="true"></i>Eliminar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -101,38 +107,47 @@ function getPrimaryValue(row: Record<string, unknown>) {
 .table-shell {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
-.mobile-list {
+.table-shell__mobile {
   display: grid;
   gap: 0.85rem;
+  min-width: 0;
 }
 
+.table-state,
 .row-card,
-.desktop-table {
-  border-radius: 24px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow);
+.table-shell__desktop {
+  border-radius: var(--radius-xl);
+  min-width: 0;
+}
+
+.table-state {
+  padding: 1rem;
+  border: 1px dashed rgba(1, 13, 39, 0.14);
+  color: rgba(1, 13, 39, 0.72);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 247, 243, 0.96));
 }
 
 .row-card {
   padding: 1rem;
   display: grid;
   gap: 1rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 247, 243, 0.96));
 }
 
 .row-card__header {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 0.85rem;
 
   strong {
     display: block;
+    margin-top: 0.3rem;
+    font-family: var(--font-display);
     font-size: 1.1rem;
     color: $primary-dark;
     letter-spacing: -0.03em;
-    margin-top: 0.3rem;
   }
 }
 
@@ -140,8 +155,14 @@ function getPrimaryValue(row: Record<string, unknown>) {
   display: inline-block;
   color: $accent-red;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   font-size: 0.68rem;
+}
+
+.row-card__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .row-card__grid {
@@ -164,15 +185,24 @@ function getPrimaryValue(row: Record<string, unknown>) {
   }
 
   strong {
-    font-size: 0.94rem;
+    font-family: var(--font-display);
+    font-size: 0.96rem;
     color: $primary-dark;
     word-break: break-word;
   }
 }
 
-.desktop-table {
+.table-shell__desktop {
   display: none;
   overflow: auto;
+  min-width: 0;
+}
+
+.desktop-table {
+  display: block;
+  min-width: 860px;
+  width: 100%;
+  border-collapse: collapse;
 }
 
 th,
@@ -197,42 +227,17 @@ th {
   flex-wrap: wrap;
 
   button {
-    border: 1px solid rgba(1, 13, 39, 0.1);
-    background: rgba(1, 13, 39, 0.03);
-    padding: 0.55rem 0.85rem;
-    border-radius: 12px;
-    cursor: pointer;
+    width: auto;
   }
-
-  .danger {
-    border-color: rgba(239, 68, 68, 0.2);
-    background: rgba(239, 68, 68, 0.08);
-    color: $alert-error;
-  }
-
-  i {
-    margin-right: 0.45rem;
-  }
-}
-
-.empty-state {
-  padding: 1rem;
-  border-radius: 20px;
-  border: 1px dashed rgba(1, 13, 39, 0.12);
-  background: rgba(1, 13, 39, 0.02);
-  color: rgba(1, 13, 39, 0.7);
 }
 
 @media (min-width: 900px) {
-  .mobile-list {
+  .table-shell__mobile {
     display: none;
   }
 
-  .desktop-table {
+  .table-shell__desktop {
     display: block;
-    min-width: 840px;
-    width: 100%;
-    border-collapse: collapse;
   }
 }
 </style>

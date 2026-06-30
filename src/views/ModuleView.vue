@@ -1,21 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import ModuleTable from '@/components/ModuleTable.vue'
 import { getModuleConfig } from '@/config/modules'
 import { resourceService } from '@/services/resources'
-import ModuleTable from '@/components/ModuleTable.vue'
+import { useUiStore } from '@/stores/ui'
 
 const route = useRoute()
+const uiStore = useUiStore()
 const loading = ref(false)
-const saving = ref(false)
 const rows = ref<Record<string, unknown>[]>([])
 const total = ref(0)
 const query = ref('')
-const editingId = ref<string | null>(null)
 
 const currentModule = computed(() => getModuleConfig(String(route.path).replace(/^\//, '')))
-const formState = reactive<Record<string, string | number | boolean | null>>({})
-
 const moduleTheme = computed(() => currentModule.value?.presentation.variant || 'operator')
 
 const heroStats = computed(() => {
@@ -24,51 +22,23 @@ const heroStats = computed(() => {
 
   return [
     { label: module.presentation.badges[0] || 'Estado', value: module.title },
-    { label: module.presentation.badges[1] || 'Accion', value: module.accent.toUpperCase() },
+    { label: module.presentation.badges[1] || 'Modo', value: module.accent.toUpperCase() },
     { label: module.presentation.badges[2] || 'Total', value: String(total.value) },
   ]
 })
-
-function normalizeDate(value: unknown) {
-  if (!value) return ''
-  const parsed = new Date(String(value))
-  if (Number.isNaN(parsed.getTime())) return ''
-  return parsed.toISOString().slice(0, 10)
-}
-
-function setFieldValue(name: string, value: string | number | boolean | null) {
-  formState[name] = value
-}
-
-function getTextValue(name: string) {
-  const value = formState[name]
-  return value === null || value === undefined ? '' : String(value)
-}
-
-function getBooleanValue(name: string) {
-  return Boolean(formState[name])
-}
-
-function resetForm() {
-  if (!currentModule.value) return
-
-  Object.keys(formState).forEach((key) => delete formState[key])
-  currentModule.value.fields.forEach((field) => {
-    formState[field.name] = field.type === 'checkbox' ? false : ''
-  })
-  editingId.value = null
-}
 
 async function loadRecords() {
   if (!currentModule.value) return
 
   loading.value = true
+
   try {
     const response = await resourceService.list<Record<string, unknown>>(currentModule.value.apiPath, {
       search: query.value,
       limit: 25,
       page: 1,
     })
+
     rows.value = response.data
     total.value = response.total
   } catch {
@@ -79,84 +49,18 @@ async function loadRecords() {
   }
 }
 
-function applyRow(row: Record<string, unknown>) {
+function openCreateModal() {
   if (!currentModule.value) return
-
-  editingId.value = String(row._id || row.id || '')
-  currentModule.value.fields.forEach((field) => {
-    const value = row[field.name]
-    if (field.type === 'tags' && Array.isArray(value)) {
-      formState[field.name] = value.join(', ')
-      return
-    }
-
-    if (field.type === 'checkbox') {
-      formState[field.name] = Boolean(value)
-      return
-    }
-
-    if (field.type === 'date') {
-      formState[field.name] = normalizeDate(value)
-      return
-    }
-
-    formState[field.name] = value === null || value === undefined ? '' : String(value)
-  })
+  uiStore.openEditor(currentModule.value.key, 'create')
 }
 
-async function submitForm() {
+function handleEdit(row: Record<string, unknown>) {
   if (!currentModule.value) return
-
-  saving.value = true
-
-  try {
-    const payload: Record<string, unknown> = {}
-
-    currentModule.value.fields.forEach((field) => {
-      const value = formState[field.name]
-
-      if (field.type === 'checkbox') {
-        payload[field.name] = !!value
-        return
-      }
-
-      if (field.type === 'number') {
-        payload[field.name] = value === '' || value === null || value === undefined ? null : Number(value)
-        return
-      }
-
-      if (field.type === 'tags') {
-        payload[field.name] = String(value || '')
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean)
-        return
-      }
-
-      if (field.type === 'date') {
-        payload[field.name] = value ? new Date(String(value)).toISOString() : null
-        return
-      }
-
-      payload[field.name] = value
-    })
-
-    if (editingId.value) {
-      await resourceService.update(`${currentModule.value.apiPath}/${editingId.value}`, payload)
-    } else {
-      await resourceService.create(currentModule.value.apiPath, payload)
-    }
-
-    resetForm()
-    await loadRecords()
-  } finally {
-    saving.value = false
-  }
+  uiStore.openEditor(currentModule.value.key, 'edit', row)
 }
 
-async function removeRow(row: Record<string, unknown>) {
+async function handleRemove(row: Record<string, unknown>) {
   if (!currentModule.value) return
-
   const id = String(row._id || row.id || '')
   if (!id) return
 
@@ -164,39 +68,54 @@ async function removeRow(row: Record<string, unknown>) {
   await loadRecords()
 }
 
+function refreshFromModal() {
+  loadRecords()
+}
+
+let searchTimer: ReturnType<typeof window.setTimeout> | null = null
+
 watch(
   () => route.path,
   () => {
-    resetForm()
     loadRecords()
   },
   { immediate: true },
 )
 
+watch(query, () => {
+  if (searchTimer) window.clearTimeout(searchTimer)
+  searchTimer = window.setTimeout(() => {
+    loadRecords()
+  }, 180)
+})
+
 onMounted(() => {
-  if (currentModule.value) {
-    resetForm()
-  }
+  window.addEventListener('module:refresh', refreshFromModal as EventListener)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('module:refresh', refreshFromModal as EventListener)
+  if (searchTimer) window.clearTimeout(searchTimer)
 })
 </script>
 
 <template>
   <div v-if="currentModule" class="module-page" :class="[`module-page--${moduleTheme}`]">
-    <section class="module-hero">
+    <section class="module-hero surface-card">
       <div class="module-hero__copy">
-        <span class="module-hero__kicker">
+        <span class="module-hero__kicker eyebrow">
           <i class="fa-solid fa-signal" aria-hidden="true"></i>
           {{ currentModule.presentation.kicker }}
         </span>
-        <h2>{{ currentModule.presentation.headline }}</h2>
-        <p>{{ currentModule.presentation.description }}</p>
+        <h2 class="section-title">{{ currentModule.presentation.headline }}</h2>
+        <p class="section-copy">{{ currentModule.presentation.description }}</p>
 
         <div class="module-tags">
-          <span v-for="badge in currentModule.presentation.badges" :key="badge">{{ badge }}</span>
+          <span v-for="badge in currentModule.presentation.badges" :key="badge" class="chip">{{ badge }}</span>
         </div>
       </div>
 
-      <div class="module-hero__panel">
+      <div class="module-hero__panel glass-card">
         <div class="hero-score">
           <span>Registros</span>
           <strong>{{ total }}</strong>
@@ -207,84 +126,56 @@ onMounted(() => {
             <strong>{{ item.value }}</strong>
           </article>
         </div>
+
+        <button type="button" class="primary-button" @click="openCreateModal">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          Nuevo registro
+        </button>
       </div>
     </section>
 
     <section class="module-layout">
-      <form class="editor" @submit.prevent="submitForm">
-        <div class="editor__header">
+      <section class="module-card surface-card">
+        <div class="module-card__head">
           <div>
-            <span class="editor__eyebrow">{{ editingId ? 'Editar registro' : 'Crear registro' }}</span>
-            <h3>{{ currentModule.title }}</h3>
+            <span class="section-label">Listado</span>
+            <h3 class="section-title">Registros recientes</h3>
           </div>
-          <button type="button" class="ghost" @click="resetForm">
-            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-            Limpiar
-          </button>
-        </div>
 
-        <label v-for="field in currentModule.fields" :key="field.name" class="field">
-          <span>{{ field.label }}</span>
-
-          <input
-            v-if="field.type === 'text' || field.type === 'email' || field.type === 'password' || field.type === 'number' || field.type === 'date'"
-            :value="getTextValue(field.name)"
-            @input="setFieldValue(field.name, ($event.target as HTMLInputElement).value)"
-            :type="field.type === 'number' ? 'number' : field.type"
-            :placeholder="field.placeholder || field.label"
-          />
-
-          <textarea
-            v-else-if="field.type === 'textarea'"
-            :value="getTextValue(field.name)"
-            @input="setFieldValue(field.name, ($event.target as HTMLTextAreaElement).value)"
-            rows="5"
-          />
-
-          <input
-            v-else-if="field.type === 'tags'"
-            :value="getTextValue(field.name)"
-            @input="setFieldValue(field.name, ($event.target as HTMLInputElement).value)"
-            type="text"
-            placeholder="1, 2, 3"
-          />
-
-          <label v-else-if="field.type === 'checkbox'" class="toggle">
-            <input
-              :checked="getBooleanValue(field.name)"
-              @change="setFieldValue(field.name, ($event.target as HTMLInputElement).checked)"
-              type="checkbox"
-            />
-            <span>{{ field.label }}</span>
-          </label>
-        </label>
-
-        <button class="primary" type="submit" :disabled="saving">
-          <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
-          {{ saving ? 'Guardando...' : editingId ? 'Actualizar' : 'Crear' }}
-        </button>
-      </form>
-
-      <section class="grid-stack">
-        <div class="grid-stack__head">
-          <div>
-            <span>Listado</span>
-            <h3>Registros recientes</h3>
-          </div>
-          <div class="search-pill">
+          <label class="search-pill">
             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-            <input v-model="query" type="search" placeholder="Buscar" @change="loadRecords" />
-          </div>
+            <input v-model="query" type="search" placeholder="Buscar" aria-label="Buscar en el módulo" />
+          </label>
         </div>
 
         <ModuleTable
           :columns="currentModule.columns"
           :rows="rows"
           :loading="loading"
-          @edit="applyRow"
-          @remove="removeRow"
+          @edit="handleEdit"
+          @remove="handleRemove"
         />
       </section>
+
+      <aside class="module-card module-card--aside surface-card">
+        <span class="section-label">Acciones</span>
+        <h3 class="section-title">Flujo editorial</h3>
+        <p>
+          Usa el modal global para crear o editar sin romper la lectura de la página.
+          La navegación y el ritmo visual se mantienen consistentes en todo el sistema.
+        </p>
+
+        <div class="module-card__facts">
+          <article>
+            <span>Estado</span>
+            <strong>{{ moduleTheme }}</strong>
+          </article>
+          <article>
+            <span>Total</span>
+            <strong>{{ total }}</strong>
+          </article>
+        </div>
+      </aside>
     </section>
   </div>
 </template>
@@ -297,91 +188,51 @@ onMounted(() => {
   gap: 1rem;
 }
 
-.module-page--operator {
-  .module-hero {
-    background: linear-gradient(135deg, rgba(1, 13, 39, 0.98), rgba(200, 57, 43, 0.92));
-  }
+.module-page--editorial .module-hero,
+.module-page--broadcast .module-hero {
+  background:
+    radial-gradient(circle at top right, rgba(200, 57, 43, 0.22), transparent 28%),
+    linear-gradient(135deg, rgba(6, 12, 28, 0.98), rgba(12, 23, 54, 0.94));
 }
 
-.module-page--editorial {
-  .module-hero {
-    background: linear-gradient(135deg, rgba(1, 13, 39, 0.98), rgba(1, 13, 39, 0.88));
-  }
-
-  .hero-stack article strong,
-  .hero-score strong {
-    color: $accent-red;
-  }
+.module-page--archive .module-hero,
+.module-page--ledger .module-hero {
+  background:
+    radial-gradient(circle at top right, rgba(201, 168, 76, 0.2), transparent 28%),
+    linear-gradient(135deg, rgba(6, 12, 28, 0.98), rgba(13, 19, 44, 0.96));
 }
 
-.module-page--archive {
-  .module-hero {
-    background: linear-gradient(135deg, rgba(1, 13, 39, 0.98), rgba(1, 13, 39, 0.9));
-  }
-
-  .module-tags span {
-    border-color: rgba(200, 57, 43, 0.3);
-    background: rgba(200, 57, 43, 0.08);
-  }
-}
-
-.module-page--broadcast {
-  .module-hero {
-    background: linear-gradient(135deg, rgba(1, 13, 39, 0.98), rgba(200, 57, 43, 0.95));
-  }
-}
-
-.module-page--ledger {
-  .module-hero {
-    background: linear-gradient(135deg, rgba(1, 13, 39, 0.98), rgba(1, 13, 39, 0.92));
-  }
-
-  .hero-score strong {
-    color: $primary-light;
-  }
+.module-page--operator .module-hero {
+  background:
+    radial-gradient(circle at top right, rgba(32, 148, 210, 0.18), transparent 28%),
+    linear-gradient(135deg, rgba(6, 12, 28, 0.98), rgba(12, 23, 54, 0.94));
 }
 
 .module-hero {
-  border-radius: 32px;
-  padding: 1.25rem;
-  color: $text-light;
+  padding: 1.2rem;
   display: grid;
   gap: 1rem;
-  border: 1px solid rgba(254, 254, 254, 0.1);
-  box-shadow: 0 28px 80px rgba(1, 13, 39, 0.22);
+  color: $text-light;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
 }
 
 .module-hero__copy {
   display: grid;
   gap: 0.9rem;
 
-  h2 {
-    font-size: clamp(2.2rem, 4vw, 4rem);
-    line-height: 0.94;
-    letter-spacing: -0.06em;
+  .section-title {
+    font-size: clamp(2rem, 7vw, 4rem);
     max-width: 12ch;
   }
 
-  p {
-    max-width: 58ch;
-    color: rgba(254, 254, 254, 0.74);
-    font-size: 1.02rem;
+  .section-copy {
+    max-width: 62ch;
+    color: rgba(246, 241, 232, 0.74);
   }
 }
 
 .module-hero__kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  width: fit-content;
-  padding: 0.45rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid rgba(254, 254, 254, 0.14);
-  background: rgba(255, 255, 255, 0.06);
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.72rem;
-
   i {
     color: $accent-red;
   }
@@ -391,28 +242,21 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-
-  span {
-    padding: 0.5rem 0.75rem;
-    border-radius: 999px;
-    border: 1px solid rgba(254, 254, 254, 0.14);
-    background: rgba(255, 255, 255, 0.04);
-    color: rgba(254, 254, 254, 0.88);
-    font-size: 0.78rem;
-  }
 }
 
 .module-hero__panel {
   display: grid;
   gap: 0.75rem;
+  padding: 1rem;
+  color: $text-light;
 }
 
 .hero-score,
 .hero-stack article {
   border-radius: 22px;
   padding: 1rem;
-  border: 1px solid rgba(254, 254, 254, 0.1);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .hero-score {
@@ -423,11 +267,12 @@ onMounted(() => {
     font-size: 0.72rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: rgba(254, 254, 254, 0.72);
+    color: rgba(246, 241, 232, 0.7);
   }
 
   strong {
-    font-size: clamp(2rem, 4vw, 3rem);
+    font-family: var(--font-display);
+    font-size: clamp(2.2rem, 5vw, 3.5rem);
     line-height: 1;
     letter-spacing: -0.06em;
   }
@@ -438,18 +283,20 @@ onMounted(() => {
   gap: 0.75rem;
 
   article {
-    display: grid;
-    gap: 0.15rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 
     span {
-      color: rgba(254, 254, 254, 0.68);
+      color: rgba(246, 241, 232, 0.68);
       text-transform: uppercase;
       letter-spacing: 0.16em;
       font-size: 0.7rem;
     }
 
     strong {
-      font-size: 1.05rem;
+      font-family: var(--font-display);
+      font-size: 1rem;
       color: $accent-red;
       letter-spacing: -0.03em;
     }
@@ -461,196 +308,106 @@ onMounted(() => {
   gap: 1rem;
 }
 
-.editor,
-.grid-stack {
-  border-radius: 28px;
-  background: linear-gradient(180deg, #fefefe, #fafafa);
-  border: 1px solid rgba(1, 13, 39, 0.1);
-  box-shadow: 0 20px 60px rgba(1, 13, 39, 0.08);
-}
-
-.editor {
-  display: grid;
-  gap: 0.9rem;
-  padding: 1.25rem;
-
-  &__header {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    gap: 0.75rem;
-    align-items: flex-start;
-  }
-
-  &__eyebrow {
-    display: inline-flex;
-    padding: 0.4rem 0.65rem;
-    border-radius: 999px;
-    background: rgba(200, 57, 43, 0.08);
-    color: $accent-red;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    font-size: 0.7rem;
-  }
-
-  h3 {
-    margin-top: 0.45rem;
-    font-size: 1.6rem;
-    color: $primary-dark;
-  }
-}
-
-.field {
-  display: grid;
-  gap: 0.4rem;
-
-  span {
-    font-size: 0.84rem;
-    font-weight: 700;
-    color: rgba(1, 13, 39, 0.82);
-  }
-
-  input,
-  textarea {
-    width: 100%;
-    border-radius: 16px;
-    border: 1px solid rgba(1, 13, 39, 0.12);
-    background: rgba(1, 13, 39, 0.02);
-    padding: 0.9rem 0.95rem;
-    outline: none;
-    color: $primary-dark;
-
-    &:focus {
-      border-color: rgba(200, 57, 43, 0.45);
-      box-shadow: 0 0 0 4px rgba(200, 57, 43, 0.08);
-    }
-  }
-}
-
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-
-  input {
-    width: 18px;
-    height: 18px;
-  }
-}
-
-.primary,
-.ghost {
-  border-radius: 14px;
-  padding: 0.85rem 1rem;
-  border: 1px solid rgba(1, 13, 39, 0.12);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.primary {
-  background: linear-gradient(135deg, $primary-dark, $accent-red);
-  color: $text-light;
-  font-weight: 700;
-}
-
-.ghost {
-  background: rgba(1, 13, 39, 0.03);
-  color: $primary-dark;
-}
-
-.grid-stack {
-  padding: 1.25rem;
+.module-card {
+  padding: 1rem;
   display: grid;
   gap: 1rem;
-  overflow: hidden;
 }
 
-.grid-stack__head {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 0.75rem;
-  align-items: flex-start;
-
-  span {
-    display: inline-block;
-    color: $accent-red;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    font-size: 0.72rem;
-    margin-bottom: 0.3rem;
-  }
-
-  h3 {
-    font-size: 1.6rem;
-    color: $primary-dark;
-  }
+.module-card__head {
+  display: grid;
+  gap: 0.85rem;
 }
 
 .search-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.7rem 0.9rem;
-  border-radius: 999px;
-  border: 1px solid rgba(1, 13, 39, 0.12);
-  background: rgba(1, 13, 39, 0.03);
+  gap: 0.65rem;
   width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(1, 13, 39, 0.1);
+  background: rgba(1, 13, 39, 0.03);
 
   i {
     color: $accent-red;
   }
 
   input {
+    flex: 1;
+    min-width: 0;
     border: 0;
     background: transparent;
     outline: none;
-    min-width: 0;
-    width: 100%;
+    color: $primary-dark;
   }
 }
 
-@media (min-width: 900px) {
-  .module-layout,
+.module-card--aside {
+  background:
+    radial-gradient(circle at top right, rgba(200, 57, 43, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 246, 242, 0.96));
+
+  p {
+    color: rgba(1, 13, 39, 0.68);
+    line-height: 1.65;
+  }
+}
+
+.module-card__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+
+  article {
+    padding: 0.95rem;
+    border-radius: 20px;
+    background: rgba(1, 13, 39, 0.03);
+    border: 1px solid rgba(1, 13, 39, 0.08);
+  }
+
+  span {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.68rem;
+    color: rgba(1, 13, 39, 0.54);
+  }
+
+  strong {
+    display: block;
+    margin-top: 0.25rem;
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    color: $primary-dark;
+    letter-spacing: -0.04em;
+  }
+}
+
+@media (min-width: 820px) {
   .module-hero {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
+    align-items: end;
+    padding: 1.5rem;
   }
 
-  .module-hero {
-    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.75fr);
-  }
-
-  .module-layout {
-    grid-template-columns: minmax(320px, 430px) minmax(0, 1fr);
-  }
-
-  .editor__header,
-  .grid-stack__head {
-    flex-direction: row;
-    justify-content: space-between;
+  .module-card__head {
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
   }
 
   .search-pill {
-    width: auto;
-  }
-}
-
-@media (min-width: 1200px) {
-  .grid-stack__head {
-    align-items: end;
+    width: 320px;
   }
 
-  .search-pill {
-    width: auto;
+  .module-layout {
+    grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.72fr);
+    align-items: start;
+  }
 
-    input {
-      min-width: 180px;
-      width: auto;
-    }
+  .module-card--aside {
+    position: sticky;
+    top: 0;
   }
 }
 </style>

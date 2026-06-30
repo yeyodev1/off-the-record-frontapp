@@ -8,7 +8,7 @@ defineProps<{
 </script>
 
 <template>
-  <article class="stat-card" :class="[`stat-card--${tone || 'primary'}`]">
+  <article class="stat-card surface-card" :class="[`stat-card--${tone || 'primary'}`]">
     <span>{{ title }}</span>
     <strong>{{ value }}</strong>
     <p>{{ detail }}</p>
@@ -19,53 +19,89 @@ defineProps<{
 @use '@/styles/colorVariables.module.scss' as *;
 
 .stat-card {
-  padding: 1.25rem;
-  border-radius: 24px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  padding: 1.2rem;
   display: grid;
-  gap: 0.35rem;
-  min-height: 140px;
+  gap: 0.4rem;
+  min-height: 160px;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(200, 57, 43, 0.08), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 246, 242, 0.96));
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: auto -24px -24px auto;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(32, 148, 210, 0.16), transparent 70%);
+    pointer-events: none;
+  }
 
   span {
-    font-size: 0.76rem;
-    letter-spacing: 0.16em;
+    position: relative;
+    z-index: 1;
+    font-size: 0.74rem;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: rgba(1, 13, 39, 0.56);
+    color: rgba(1, 13, 39, 0.52);
   }
 
   strong {
-    font-size: clamp(1.8rem, 3vw, 2.4rem);
-    letter-spacing: -0.05em;
-  }
-
-  p {
-    color: rgba(1, 13, 39, 0.62);
-  }
-
-  &--primary strong {
+    position: relative;
+    z-index: 1;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 3rem);
+    letter-spacing: -0.06em;
     color: $primary-dark;
   }
 
-  &--secondary strong {
-    color: $accent-red;
+  p {
+    position: relative;
+    z-index: 1;
+    color: rgba(1, 13, 39, 0.68);
   }
 
-  &--success strong {
-    color: $accent-red;
+  &--primary {
+    border-color: rgba(32, 148, 210, 0.18);
   }
 
-  &--warning strong {
-    color: $alert-warning;
+  &--secondary {
+    border-color: rgba(201, 168, 76, 0.2);
+
+    strong {
+      color: $accent-red;
+    }
   }
 
-  &--info strong {
-    color: $alert-info;
+  &--success {
+    border-color: rgba(16, 185, 129, 0.18);
   }
 
-  &--error strong {
-    color: $alert-error;
+  &--warning {
+    border-color: rgba(245, 158, 11, 0.18);
+
+    strong {
+      color: $alert-warning;
+    }
+  }
+
+  &--info {
+    border-color: rgba(59, 130, 246, 0.18);
+
+    strong {
+      color: $alert-info;
+    }
+  }
+
+  &--error {
+    border-color: rgba(239, 68, 68, 0.18);
+
+    strong {
+      color: $alert-error;
+    }
   }
 }
 </style>

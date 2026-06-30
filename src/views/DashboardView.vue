@@ -26,15 +26,15 @@ const kpis = computed(() => [
     tone: 'primary' as const,
   },
   {
-    title: 'Modulos con actividad',
+    title: 'Módulos activos',
     value: activeModules.value,
     detail: 'Secciones con datos cargados',
     tone: 'secondary' as const,
   },
   {
-    title: 'Modulos clave',
+    title: 'Módulos clave',
     value: criticalModules.value,
-    detail: 'Usuarios, articulos y exclusivos',
+    detail: 'Usuarios, artículos y exclusivos',
     tone: 'error' as const,
   },
 ])
@@ -66,86 +66,105 @@ onMounted(async () => {
 
 <template>
   <div class="dashboard">
-    <section class="hero-card">
-      <div class="hero-card__copy">
-        <span class="hero-card__eyebrow"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Dashboard</span>
-        <h2>Resumen operativo del panel</h2>
-        <p>
-          Una vista clara para entender el estado del sistema, entrar a los módulos importantes y actuar sin perder tiempo.
+    <section class="dashboard-hero glass-card">
+      <div class="dashboard-hero__copy">
+        <span class="eyebrow"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Panel de control</span>
+        <h2 class="section-title">Resumen operativo</h2>
+        <p class="section-copy">
+          Vista unificada del estado del sistema. Navega por módulos, mide volumen y entra en flujo editorial sin fricción.
         </p>
 
-        <div class="hero-card__meta">
-          <span><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Sincronizado {{ lastSyncLabel }}</span>
-          <span><i class="fa-solid fa-layer-group" aria-hidden="true"></i> {{ moduleConfigs.length }} modulos</span>
+        <div class="dashboard-hero__meta">
+          <span class="chip"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ lastSyncLabel }}</span>
+          <span class="chip"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> {{ moduleConfigs.length }} módulos</span>
         </div>
       </div>
 
-      <div class="hero-card__panel">
-        <div class="hero-card__panel-label">Acceso rapido</div>
-        <div class="hero-card__panel-links">
-          <RouterLink to="/users">Usuarios</RouterLink>
-          <RouterLink to="/articles">Articulos</RouterLink>
-          <RouterLink to="/exclusives">Exclusivos</RouterLink>
+      <div class="dashboard-hero__signal">
+        <div class="signal-card signal-card--primary">
+          <span>Flujo</span>
+          <strong>Editorial live</strong>
+          <p>Lectura rápida con brillo, contraste y ritmo visual.</p>
+        </div>
+
+        <div class="signal-grid">
+          <article>
+            <span>Total</span>
+            <strong>{{ totalRecords }}</strong>
+          </article>
+          <article>
+            <span>Activos</span>
+            <strong>{{ activeModules }}</strong>
+          </article>
         </div>
       </div>
     </section>
 
-    <section class="kpi-grid">
+    <section class="dashboard-metrics">
       <StatCard
-        v-for="kpi in kpis"
+        v-for="(kpi, index) in kpis"
         :key="kpi.title"
         :title="kpi.title"
         :value="kpi.value"
         :detail="kpi.detail"
         :tone="kpi.tone"
+        class="dashboard-metrics__card"
+        :class="`dashboard-metrics__card--${index + 1}`"
       />
     </section>
 
-    <section class="workspace">
-      <div class="workspace__main">
-        <div class="section-head">
+    <section class="dashboard-grid">
+      <section class="dashboard-panel surface-card">
+        <div class="dashboard-panel__head">
           <div>
-            <span>Modulos</span>
-            <h3>Acceso directo al contenido</h3>
+            <span class="section-label">Directorio</span>
+            <h3 class="section-title">Módulos del sistema</h3>
           </div>
-          <p>Entra al módulo que necesites con una lectura rápida del volumen de datos.</p>
+          <span class="dashboard-panel__badge">{{ activeModules }} activos</span>
         </div>
 
         <div class="module-list">
-          <RouterLink v-for="module in moduleConfigs" :key="module.key" :to="`/${module.path}`" class="module-list__item">
-            <div class="module-list__icon">
+          <RouterLink v-for="module in moduleConfigs" :key="module.key" :to="`/${module.path}`" class="module-item">
+            <div class="module-item__icon">
               <i class="fa-solid" :class="module.icon" aria-hidden="true"></i>
             </div>
 
-            <div class="module-list__copy">
+            <div class="module-item__copy">
               <span>{{ module.title }}</span>
               <p>{{ module.description }}</p>
             </div>
 
-            <div class="module-list__meta">
+            <div class="module-item__meta">
               <strong>{{ counts[module.key] ?? 0 }}</strong>
-              <small>Registros</small>
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
             </div>
           </RouterLink>
         </div>
-      </div>
+      </section>
 
-      <aside class="workspace__aside">
-        <div class="section-head section-head--compact">
+      <aside class="dashboard-panel dashboard-panel--aside surface-card">
+        <div class="dashboard-panel__head">
           <div>
-            <span>Bloques clave</span>
-            <h3>Lo mas usado</h3>
+            <span class="section-label">Favoritos</span>
+            <h3 class="section-title">Accesos rápidos</h3>
           </div>
         </div>
 
-        <div class="summary-list">
-          <RouterLink v-for="module in summaryModules" :key="module!.key" :to="`/${module!.path}`" class="summary-list__item">
+        <div class="quick-list">
+          <RouterLink v-for="module in summaryModules" :key="module!.key" :to="`/${module!.path}`" class="quick-item">
             <i class="fa-solid" :class="module!.icon" aria-hidden="true"></i>
-            <div>
+            <div class="quick-item__copy">
               <strong>{{ module!.title }}</strong>
-              <p>{{ module!.presentation.headline }}</p>
+              <span>Ir al módulo <i class="fa-solid fa-arrow-right"></i></span>
             </div>
           </RouterLink>
+        </div>
+
+        <div class="dashboard-note glass-card">
+          <span class="section-label">Estado</span>
+          <p>
+            La experiencia ya responde a una narrativa más experimental: superficies, contrastes altos y jerarquías más teatrales.
+          </p>
         </div>
       </aside>
     </section>
@@ -158,281 +177,323 @@ onMounted(async () => {
 .dashboard {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
-.hero-card {
-  border-radius: 28px;
-  padding: 1.25rem;
+.dashboard-hero {
+  padding: 1.2rem;
   display: grid;
-  gap: 1rem;
-  background:
-    linear-gradient(140deg, rgba(1, 13, 39, 0.98), rgba(1, 13, 39, 0.94)),
-    radial-gradient(circle at top right, rgba(200, 57, 43, 0.2), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(200, 57, 43, 0.14), transparent 28%);
+  gap: 1.2rem;
   color: $text-light;
-  box-shadow: 0 28px 80px rgba(1, 13, 39, 0.18);
-
-  h2 {
-    font-size: clamp(1.9rem, 7vw, 3.4rem);
-    letter-spacing: -0.06em;
-  }
-
-  p {
-    max-width: 60ch;
-    margin-top: 0.7rem;
-    color: rgba(254, 254, 254, 0.74);
-  }
+  background:
+    radial-gradient(circle at top right, rgba(200, 57, 43, 0.2), transparent 28%),
+    radial-gradient(circle at bottom left, rgba(32, 148, 210, 0.16), transparent 24%),
+    linear-gradient(135deg, rgba(6, 12, 28, 0.98), rgba(12, 23, 54, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  position: relative;
+  min-width: 0;
 }
 
-.hero-card__copy {
+.dashboard-hero::before {
+  content: '';
+  position: absolute;
+  inset: -20% auto auto -10%;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.14), transparent 70%);
+  filter: blur(18px);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.dashboard-hero__copy {
+  position: relative;
+  z-index: 1;
   display: grid;
-  gap: 0.85rem;
-}
+  gap: 0.9rem;
+  min-width: 0;
 
-.hero-card__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: fit-content;
-  padding: 0.45rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid rgba(254, 254, 254, 0.14);
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.72rem;
-  color: rgba(254, 254, 254, 0.84);
+  .section-title {
+    font-size: clamp(2.4rem, 8vw, 4.5rem);
+    max-width: 10ch;
+  }
 
-  i {
-    color: $accent-red;
+  .section-copy {
+    max-width: 56ch;
+    font-size: 1.02rem;
+    color: rgba(246, 241, 232, 0.76);
   }
 }
 
-.hero-card__meta {
+.dashboard-hero__meta {
   display: flex;
+  gap: 0.7rem;
   flex-wrap: wrap;
-  gap: 0.5rem;
-
-  span {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.5rem 0.75rem;
-    border-radius: 999px;
-    border: 1px solid rgba(254, 254, 254, 0.14);
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(254, 254, 254, 0.84);
-    font-size: 0.78rem;
-  }
-
-  i {
-    color: $accent-red;
-  }
 }
 
-.hero-card__panel {
-  padding: 1rem;
-  border-radius: 24px;
-  border: 1px solid rgba(254, 254, 254, 0.08);
-  background: rgba(255, 255, 255, 0.05);
+.dashboard-hero__signal {
+  position: relative;
+  z-index: 1;
   display: grid;
-  gap: 0.85rem;
-  align-content: start;
+  gap: 0.8rem;
+  min-width: 0;
 }
 
-.hero-card__panel-label {
+.signal-card,
+.signal-grid article {
+  border-radius: var(--radius-xl);
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
+  min-width: 0;
+}
+
+.signal-card span,
+.signal-grid span {
+  display: block;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   font-size: 0.7rem;
-  color: rgba(254, 254, 254, 0.68);
+  color: rgba(246, 241, 232, 0.68);
 }
 
-.hero-card__panel-links {
-  display: grid;
-  gap: 0.65rem;
+.signal-card strong {
+  display: block;
+  margin-top: 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  letter-spacing: -0.04em;
+}
 
-  a {
-    padding: 0.85rem 0.95rem;
-    border-radius: 16px;
-    border: 1px solid rgba(254, 254, 254, 0.1);
-    background: rgba(1, 13, 39, 0.28);
-    font-weight: 700;
+.signal-card p {
+  margin-top: 0.45rem;
+  color: rgba(246, 241, 232, 0.72);
+}
+
+.signal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+
+  strong {
+    display: block;
+    margin-top: 0.25rem;
+    font-family: var(--font-display);
+    font-size: 2rem;
+    letter-spacing: -0.05em;
   }
 }
 
-.kpi-grid {
+.dashboard-metrics {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.85rem;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1rem;
+  min-width: 0;
 }
 
-.workspace {
+.dashboard-metrics__card {
+  min-height: 100%;
+}
+
+.dashboard-grid {
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
-.workspace__main,
-.workspace__aside {
-  border-radius: 28px;
-  border: 1px solid rgba(1, 13, 39, 0.08);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  padding: 1rem;
-}
-
-.workspace__main {
+.dashboard-panel {
+  padding: 1.1rem;
   display: grid;
   gap: 1rem;
+  min-width: 0;
 }
 
-.section-head {
-  display: grid;
-  gap: 0.35rem;
+.dashboard-panel__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
 
-  span {
-    display: inline-block;
-    color: $accent-red;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    font-size: 0.7rem;
-  }
-
-  h3 {
-    font-size: 1.45rem;
+  .section-title {
+    font-size: clamp(1.5rem, 4vw, 2.2rem);
     color: $primary-dark;
-    letter-spacing: -0.04em;
-  }
-
-  p {
-    color: rgba(1, 13, 39, 0.68);
-    max-width: 58ch;
   }
 }
 
-.section-head--compact {
-  margin-bottom: 0.75rem;
+.dashboard-panel__badge {
+  padding: 0.55rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(200, 57, 43, 0.08);
+  border: 1px solid rgba(200, 57, 43, 0.16);
+  color: $accent-red;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .module-list {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.8rem;
+  min-width: 0;
 }
 
-.module-list__item,
-.summary-list__item {
-  border-radius: 22px;
-  border: 1px solid rgba(1, 13, 39, 0.08);
-  background: linear-gradient(180deg, #fff, #fbfbfb);
-  box-shadow: var(--shadow);
-}
-
-.module-list__item {
-  padding: 1rem;
+.module-item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 0.85rem;
+  gap: 0.95rem;
   align-items: center;
-}
+  padding: 1rem;
+  border-radius: 22px;
+  background: linear-gradient(145deg, #ffffff, #f8f7f4);
+  border: 1px solid rgba(1, 13, 39, 0.06);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  min-width: 0;
 
-.module-list__icon {
-  width: 2.5rem;
-  height: 2.5rem;
-  display: grid;
-  place-items: center;
-  border-radius: 14px;
-  background: rgba(1, 13, 39, 0.04);
-
-  i {
-    color: $accent-red;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 30px rgba(1, 13, 39, 0.08);
+    border-color: rgba(200, 57, 43, 0.12);
   }
 }
 
-.module-list__copy {
+.module-item__icon {
+  width: 3.2rem;
+  height: 3.2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(1, 13, 39, 0.04);
+  color: $accent-red;
+  font-size: 1.1rem;
+}
+
+.module-item__copy {
   min-width: 0;
 
   span {
     display: block;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
     font-weight: 800;
+    letter-spacing: -0.03em;
     color: $primary-dark;
-    margin-bottom: 0.15rem;
   }
 
   p {
-    color: rgba(1, 13, 39, 0.66);
+    margin-top: 0.25rem;
+    color: rgba(1, 13, 39, 0.62);
     font-size: 0.9rem;
   }
 }
 
-.module-list__meta {
-  text-align: right;
+.module-item__meta {
+  display: grid;
+  justify-items: end;
+  gap: 0.2rem;
 
   strong {
-    display: block;
-    font-size: 1.35rem;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
     color: $accent-red;
-    line-height: 1;
+    letter-spacing: -0.04em;
   }
-
-  small {
-    color: rgba(1, 13, 39, 0.56);
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    font-size: 0.68rem;
-  }
-}
-
-.summary-list {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.summary-list__item {
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
 
   i {
-    width: 2.5rem;
-    height: 2.5rem;
-    display: grid;
-    place-items: center;
-    border-radius: 14px;
-    background: rgba(200, 57, 43, 0.08);
-    color: $accent-red;
-    flex: 0 0 auto;
-  }
-
-  div {
-    min-width: 0;
-  }
-
-  strong {
-    display: block;
-    color: $primary-dark;
-    font-weight: 800;
-  }
-
-  p {
-    color: rgba(1, 13, 39, 0.66);
-    font-size: 0.9rem;
+    color: rgba(1, 13, 39, 0.42);
   }
 }
 
-@media (min-width: 720px) {
-  .hero-card {
-    grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
-    align-items: end;
+.dashboard-panel--aside {
+  display: grid;
+  gap: 1rem;
+}
+
+.quick-list {
+  display: grid;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.quick-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #0c1736, #c8392b);
+  color: white;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+  min-width: 0;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 34px rgba(200, 57, 43, 0.22);
   }
 
-  .kpi-grid {
+  i {
+    font-size: 1.35rem;
+  }
+}
+
+.quick-item__copy {
+  display: grid;
+  gap: 0.2rem;
+
+  strong {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    letter-spacing: -0.03em;
+  }
+
+  span {
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.78);
+  }
+}
+
+.dashboard-note {
+  padding: 1rem;
+  display: grid;
+  gap: 0.5rem;
+  color: $text-light;
+  background: linear-gradient(135deg, rgba(6, 12, 28, 0.96), rgba(12, 23, 54, 0.9));
+
+  p {
+    color: rgba(246, 241, 232, 0.78);
+  }
+}
+
+@media (min-width: 780px) {
+  .dashboard-metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dashboard-hero {
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
+    align-items: end;
+    padding: 1.5rem;
   }
 }
 
 @media (min-width: 1100px) {
-  .workspace {
-    grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.8fr);
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
+  }
+}
+
+@media (min-width: 1600px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.74fr);
+  }
+
+  .dashboard-panel--aside {
+    position: sticky;
+    top: 0;
   }
 }
 </style>

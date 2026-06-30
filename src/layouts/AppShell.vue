@@ -1,25 +1,59 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import ModuleEditorModal from '@/components/ModuleEditorModal.vue'
 import { moduleConfigs } from '@/config/modules'
 import { useUserStore } from '@/stores/user'
+import { useUiStore } from '@/stores/ui'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const uiStore = useUiStore()
 const showLogoutModal = ref(false)
 
-const menuItems = computed(() => [
-  { label: 'Dashboard', path: '/dashboard', accent: 'primary' as const, icon: 'fa-gauge-high' },
-  ...moduleConfigs.map((module) => ({
-    label: module.title,
-    path: `/${module.path}`,
-    accent: module.accent,
-    icon: module.icon,
-  })),
+const menuSections = computed(() => [
+  {
+    title: 'Principal',
+    icon: 'fa-gauge-high',
+    items: [{ label: 'Dashboard', path: '/dashboard', icon: 'fa-gauge-high' }],
+  },
+  {
+    title: 'Editorial',
+    icon: 'fa-newspaper',
+    items: moduleConfigs
+      .filter((module) => ['articles', 'types', 'exclusives', 'notifications'].includes(module.key))
+      .map((module) => ({ label: module.title, path: `/${module.path}`, icon: module.icon })),
+  },
+  {
+    title: 'Administración',
+    icon: 'fa-sliders',
+    items: moduleConfigs
+      .filter((module) => ['users', 'roles', 'uploads'].includes(module.key))
+      .map((module) => ({ label: module.title, path: `/${module.path}`, icon: module.icon })),
+  },
+  {
+    title: 'Control',
+    icon: 'fa-chart-line',
+    items: moduleConfigs
+      .filter((module) => ['extras', 'logs', 'logexclusives'].includes(module.key))
+      .map((module) => ({ label: module.title, path: `/${module.path}`, icon: module.icon })),
+  },
 ])
 
 const pageTitle = computed(() => String(route.meta.title || 'Off The Record'))
+const pageSubtitle = computed(() => {
+  if (route.meta.moduleKey) {
+    return 'Explora, edita y publica con un ritmo visual más cinematográfico.'
+  }
+
+  return 'Centro operativo editorial con navegación, métricas y acceso rápido.'
+})
+
+const activeModule = computed(() =>
+  route.meta.moduleKey ? moduleConfigs.find((module) => module.key === String(route.meta.moduleKey)) || null : null,
+)
+
 const userRole = computed(() => {
   if (userStore.roleId === 1) return 'Administrador'
   if (userStore.roleId === 3) return 'Editor'
@@ -29,14 +63,18 @@ const userRole = computed(() => {
 
 const userInitials = computed(() => {
   const source = `${userStore.name || 'OTR'} ${userStore.email || ''}`.trim()
-  return source
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('')
-    .slice(0, 2) || 'OT'
+  return (
+    source
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join('')
+      .slice(0, 2) || 'OT'
+  )
 })
+
+const liveStatus = computed(() => (activeModule.value ? activeModule.value.presentation.variant : 'global'))
 
 function openLogoutModal() {
   showLogoutModal.value = true
@@ -50,47 +88,93 @@ function confirmLogout() {
   userStore.clear()
   router.push('/login')
 }
+
+function openCreateModal() {
+  if (!activeModule.value) return
+  uiStore.openEditor(activeModule.value.key, 'create')
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && showLogoutModal.value) {
+    closeLogoutModal()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <template>
-  <div class="shell">
+  <div class="shell page-frame">
     <aside class="shell__sidebar">
-      <div class="brand">
-        <i class="brand__icon fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
-        <span class="brand__eyebrow">Off The Record</span>
-        <strong class="brand__title">Admin Web</strong>
-        <p>Editorial dashboard for the new stack</p>
+      <div class="shell__sidebar-orbit shell__sidebar-orbit--one"></div>
+      <div class="shell__sidebar-orbit shell__sidebar-orbit--two"></div>
+
+      <div class="brand-panel">
+        <div class="brand-panel__mark">
+          <i class="fa-solid fa-microphone-lines" aria-hidden="true"></i>
+        </div>
+
+        <div class="brand-panel__copy">
+          <span class="eyebrow">Off The Record</span>
+          <strong>Admin Web</strong>
+          <p>Editorial command center</p>
+        </div>
       </div>
 
-      <section class="profile-card">
-        <div class="profile-card__avatar">{{ userInitials }}</div>
-        <div class="profile-card__meta">
-          <span class="profile-card__status"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Activo</span>
+      <section class="sidebar-stamp">
+        <span class="section-label">Navigation rail</span>
+        <h2 class="section-title">{{ pageTitle }}</h2>
+        <p>Acceso rápido, jerarquía clara y un ritmo visual más cinematográfico.</p>
+      </section>
+
+      <section class="profile-panel">
+        <div class="profile-panel__avatar">{{ userInitials }}</div>
+
+        <div class="profile-panel__meta">
+          <span class="profile-panel__status">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            Activo
+          </span>
           <strong>{{ userStore.name || 'Equipo editorial' }}</strong>
           <p>{{ userStore.email || 'session' }}</p>
         </div>
-        <div class="profile-card__chips">
-          <span><i class="fa-solid fa-user-shield" aria-hidden="true"></i> {{ userRole }}</span>
-          <span><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Web only</span>
+
+        <div class="profile-panel__chips">
+          <span class="chip"><i class="fa-solid fa-user-shield" aria-hidden="true"></i>{{ userRole }}</span>
+          <span class="chip"><i class="fa-solid fa-layer-group" aria-hidden="true"></i>{{ liveStatus }}</span>
         </div>
       </section>
 
-      <nav class="menu">
-        <RouterLink
-          v-for="item in menuItems"
-          :key="item.path"
-          :to="item.path"
-          class="menu__item"
-          :class="[`menu__item--${item.accent}`]"
-        >
-          <i class="fa-solid menu__icon" :class="item.icon" aria-hidden="true"></i>
-          <span>{{ item.label }}</span>
-        </RouterLink>
+      <nav class="menu" aria-label="Principal">
+        <section v-for="section in menuSections" :key="section.title" class="menu-section">
+          <div class="menu-section__header">
+            <i class="fa-solid" :class="section.icon" aria-hidden="true"></i>
+            <span>{{ section.title }}</span>
+          </div>
+
+          <RouterLink
+            v-for="item in section.items"
+            :key="item.path"
+            :to="item.path"
+            class="menu__item"
+            :class="{ 'menu__item--active': route.path === item.path }"
+            :aria-current="route.path === item.path ? 'page' : undefined"
+          >
+            <i class="fa-solid menu__icon" :class="item.icon" aria-hidden="true"></i>
+            <span>{{ item.label }}</span>
+          </RouterLink>
+        </section>
       </nav>
 
       <footer class="sidebar-footer">
         <p>Panel editorial en tiempo real</p>
-        <button class="logout-link" type="button" @click="openLogoutModal">
+        <button class="ghost-button logout-link" type="button" @click="openLogoutModal">
           <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
           Cerrar sesión
         </button>
@@ -98,16 +182,34 @@ function confirmLogout() {
     </aside>
 
     <main class="shell__main">
-      <header class="topbar">
-        <div>
-          <span class="topbar__eyebrow">{{ route.meta.moduleKey ? 'Modulo' : 'Vista' }}</span>
-          <h1>{{ pageTitle }}</h1>
+      <header class="topbar surface-card">
+        <div class="topbar__copy">
+          <span class="eyebrow">{{ route.meta.moduleKey ? 'Módulo' : 'Vista' }}</span>
+          <h1 class="section-title">{{ pageTitle }}</h1>
+          <p class="section-copy">{{ pageSubtitle }}</p>
         </div>
 
         <div class="topbar__actions">
-          <div class="topbar-pill">
-            <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
-            <span>Editorial</span>
+          <div class="topbar__stats" aria-label="Estado del panel">
+            <div class="topbar-stat">
+              <span>Rol</span>
+              <strong>{{ userRole }}</strong>
+            </div>
+            <div class="topbar-stat">
+              <span>Vista</span>
+              <strong>{{ route.meta.moduleKey ? 'Módulo' : 'Dashboard' }}</strong>
+            </div>
+          </div>
+
+          <div class="topbar__buttons">
+            <button v-if="activeModule" type="button" class="primary-button" @click="openCreateModal">
+              <i class="fa-solid fa-plus" aria-hidden="true"></i>
+              Nuevo
+            </button>
+            <div class="topbar-pill">
+              <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
+              <span>Editorial</span>
+            </div>
           </div>
         </div>
       </header>
@@ -121,10 +223,12 @@ function confirmLogout() {
       </section>
     </main>
 
+    <ModuleEditorModal />
+
     <Teleport to="body">
       <Transition name="modal">
         <div v-if="showLogoutModal" class="logout-modal" @click.self="closeLogoutModal">
-          <div class="logout-modal__panel">
+          <div class="logout-modal__panel modal-surface">
             <i class="fa-solid fa-triangle-exclamation logout-modal__icon" aria-hidden="true"></i>
             <h2>Cerrar sesión</h2>
             <p>¿Seguro que quieres salir del panel editorial?</p>
@@ -147,207 +251,294 @@ function confirmLogout() {
 
 .shell {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background:
-    radial-gradient(circle at top right, rgba(200, 57, 43, 0.16), transparent 26%),
-    radial-gradient(circle at bottom left, rgba(1, 13, 39, 0.25), transparent 24%),
-    #010d27;
-  overflow-x: hidden;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  padding: 1rem;
 }
 
 .shell__sidebar {
+  position: relative;
+  overflow: hidden;
   padding: 1rem;
-  background:
-    linear-gradient(180deg, rgba(1, 13, 39, 0.98), rgba(1, 13, 39, 0.94)),
-    radial-gradient(circle at top left, rgba(200, 57, 43, 0.18), transparent 36%);
-  color: $text-light;
   display: grid;
   gap: 1rem;
-  overflow: hidden;
-  border-bottom: 1px solid rgba(254, 254, 254, 0.08);
+  color: $text-light;
+  background:
+    radial-gradient(circle at top left, rgba(200, 57, 43, 0.34), transparent 18%),
+    radial-gradient(circle at 82% 10%, rgba(32, 148, 210, 0.18), transparent 16%),
+    linear-gradient(180deg, rgba(5, 8, 22, 0.98), rgba(7, 16, 36, 0.96) 55%, rgba(5, 8, 22, 0.99));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 28px 80px rgba(1, 13, 39, 0.28);
+  isolation: isolate;
 }
 
-.brand {
-  padding: 1.05rem;
-  border: 1px solid rgba(254, 254, 254, 0.08);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.035);
+.shell__sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 25%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: auto, 44px 44px, 44px 44px;
+  opacity: 0.18;
+  pointer-events: none;
+}
 
-  &__icon {
-    color: $accent-red;
-    font-size: 1.15rem;
-    margin-bottom: 0.75rem;
-  }
+.shell__sidebar::after {
+  content: '';
+  position: absolute;
+  inset: auto 10% 14px 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
+  pointer-events: none;
+}
 
-  &__eyebrow {
+.shell__sidebar-orbit {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(2px);
+  opacity: 0.5;
+}
+
+.shell__sidebar-orbit--one {
+  width: 180px;
+  height: 180px;
+  top: -60px;
+  right: -52px;
+  background: radial-gradient(circle, rgba(200, 57, 43, 0.2), transparent 68%);
+}
+
+.shell__sidebar-orbit--two {
+  width: 140px;
+  height: 140px;
+  bottom: 18%;
+  left: -48px;
+  background: radial-gradient(circle, rgba(32, 148, 210, 0.16), transparent 70%);
+}
+
+.brand-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.brand-panel__mark {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, $primary-dark, $accent-red);
+  color: $text-light;
+  flex: 0 0 auto;
+  box-shadow: 0 18px 36px rgba(200, 57, 43, 0.18);
+}
+
+.brand-panel__copy {
+  min-width: 0;
+
+  strong {
     display: block;
-    font-size: 0.72rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: rgba(254, 254, 254, 0.72);
-  }
-
-  &__title {
-    display: block;
-    margin-top: 0.35rem;
-    font-size: 1.35rem;
-    letter-spacing: -0.03em;
+    margin-top: 0.3rem;
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    letter-spacing: -0.04em;
   }
 
   p {
-    margin-top: 0.65rem;
-    color: rgba(254, 254, 254, 0.62);
+    margin-top: 0.25rem;
+    color: rgba(246, 241, 232, 0.68);
     font-size: 0.92rem;
   }
 }
 
-.profile-card {
+.profile-panel {
+  position: relative;
+  z-index: 1;
   padding: 1rem;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(254, 254, 254, 0.08);
   display: grid;
   gap: 0.85rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
 
-  &__avatar {
-    width: 56px;
-    height: 56px;
-    border-radius: 18px;
-    display: grid;
-    place-items: center;
-    background: linear-gradient(135deg, $primary-dark, $accent-red);
+.sidebar-stamp {
+  position: relative;
+  z-index: 1;
+  padding: 1rem;
+  display: grid;
+  gap: 0.55rem;
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(135deg, rgba(200, 57, 43, 0.16), rgba(32, 148, 210, 0.08)),
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  .section-title {
+    font-size: 1.65rem;
+    max-width: 10ch;
+  }
+
+  p {
+    color: rgba(246, 241, 232, 0.72);
+    line-height: 1.6;
+  }
+}
+
+.profile-panel__avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, $primary-dark, $accent-red);
+  color: $text-light;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: 0 18px 36px rgba(200, 57, 43, 0.2);
+}
+
+.profile-panel__meta {
+  display: grid;
+  gap: 0.3rem;
+
+  strong {
+    font-size: 1rem;
     color: $text-light;
-    font-weight: 800;
-    letter-spacing: 0.04em;
   }
 
-  &__meta {
-    display: grid;
-    gap: 0.3rem;
-
-    strong {
-      font-size: 1rem;
-      color: $text-light;
-    }
-
-    p {
-      color: rgba(254, 254, 254, 0.66);
-      font-size: 0.9rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+  p {
+    color: rgba(246, 241, 232, 0.66);
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
+}
 
-  &__status {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.72rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: rgba(254, 254, 254, 0.76);
+.profile-panel__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(246, 241, 232, 0.78);
 
-    i {
-      color: $accent-red;
-    }
+  i {
+    color: $accent-red;
   }
+}
 
-  &__chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-
-    span {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      padding: 0.45rem 0.65rem;
-      border-radius: 999px;
-      border: 1px solid rgba(254, 254, 254, 0.08);
-      background: rgba(255, 255, 255, 0.03);
-      color: rgba(254, 254, 254, 0.82);
-      font-size: 0.76rem;
-    }
-
-    i {
-      color: $accent-red;
-    }
-  }
+.profile-panel__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .menu {
+  position: relative;
+  z-index: 1;
   display: grid;
-  gap: 0.45rem;
+  gap: 0.9rem;
   overflow-y: auto;
   padding-right: 0.2rem;
+}
 
-  &__item {
-    padding: 0.82rem 0.95rem;
-    border-radius: 16px;
-    border: 1px solid rgba(254, 254, 254, 0.08);
-    background: rgba(255, 255, 255, 0.02);
-    color: rgba(254, 254, 254, 0.88);
-    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    min-height: 48px;
-    width: 100%;
+.menu-section {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.85rem;
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025)),
+    rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
 
-    &:hover,
-    &.router-link-active {
-      transform: translateX(3px);
-      background: rgba(255, 255, 255, 0.08);
-    }
+.menu-section__header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: rgba(246, 241, 232, 0.68);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.68rem;
 
-    .menu__icon {
-      width: 1rem;
-      color: $accent-red;
-      flex: 0 0 auto;
-    }
-
-    &--primary.router-link-active {
-      border-color: rgba(200, 57, 43, 0.6);
-    }
-
-    &--secondary.router-link-active {
-      border-color: rgba(200, 57, 43, 0.6);
-    }
-
-    &--error.router-link-active {
-      border-color: rgba(239, 68, 68, 0.7);
-    }
+  i {
+    color: $accent-red;
   }
 }
 
+.menu__item {
+  padding: 0.9rem 0.95rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(246, 241, 232, 0.9);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 48px;
+  width: 100%;
+
+  &:hover,
+  &.router-link-active,
+  &--active {
+    transform: translateX(4px);
+    background: linear-gradient(135deg, rgba(200, 57, 43, 0.24), rgba(32, 148, 210, 0.14));
+    border-color: rgba(200, 57, 43, 0.42);
+    box-shadow:
+      0 16px 30px rgba(200, 57, 43, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+}
+
+.menu__icon {
+  width: 1rem;
+  color: $accent-red;
+  flex: 0 0 auto;
+}
+
 .sidebar-footer {
+  position: relative;
+  z-index: 1;
   display: grid;
   gap: 0.75rem;
   padding-top: 0.25rem;
-  border-top: 1px solid rgba(254, 254, 254, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 
   p {
-    color: rgba(254, 254, 254, 0.62);
+    color: rgba(246, 241, 232, 0.62);
     font-size: 0.88rem;
   }
 }
 
 .logout-link {
-  border: 0;
-  background: transparent;
+  width: 100%;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
   color: $text-light;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0;
-  cursor: pointer;
-  font-weight: 700;
-
-  i {
-    color: $accent-red;
-  }
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .shell__main {
@@ -355,49 +546,76 @@ function confirmLogout() {
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(254, 254, 254, 0.98), rgba(254, 254, 254, 0.94)),
-    radial-gradient(circle at top right, rgba(200, 57, 43, 0.06), transparent 28%);
+  gap: 1rem;
 }
 
 .topbar {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 0.75rem;
-  padding: 1rem;
-  border-bottom: 1px solid rgba(1, 13, 39, 0.08);
+  padding: 1.2rem;
+  display: grid;
+  gap: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 243, 238, 0.94)),
+    radial-gradient(circle at top right, rgba(200, 57, 43, 0.08), transparent 30%);
+}
 
-  h1 {
-    font-size: clamp(1.8rem, 3vw, 2.4rem);
-    font-weight: 900;
-    letter-spacing: -0.05em;
+.topbar__copy {
+  display: grid;
+  gap: 0.5rem;
+
+  .section-title {
+    font-size: clamp(2rem, 4vw, 3.2rem);
     color: $primary-dark;
   }
 
-  &__eyebrow {
-    display: block;
+  .section-copy {
+    max-width: 62ch;
+    color: rgba(1, 13, 39, 0.68);
+  }
+}
+
+.topbar__actions {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.topbar__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.topbar-stat {
+  padding: 0.85rem 0.95rem;
+  border-radius: 18px;
+  background: rgba(1, 13, 39, 0.04);
+  border: 1px solid rgba(1, 13, 39, 0.08);
+  display: grid;
+  gap: 0.15rem;
+
+  span {
     font-size: 0.7rem;
-    letter-spacing: 0.2em;
     text-transform: uppercase;
+    letter-spacing: 0.16em;
     color: rgba(1, 13, 39, 0.56);
-    margin-bottom: 0.25rem;
   }
 
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
+  strong {
+    color: $primary-dark;
+    font-size: 0.94rem;
   }
+}
+
+.topbar__buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .topbar-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.7rem 0.9rem;
+  padding: 0.78rem 0.95rem;
   border-radius: 999px;
   border: 1px solid rgba(1, 13, 39, 0.1);
   background: rgba(1, 13, 39, 0.03);
@@ -411,9 +629,7 @@ function confirmLogout() {
 .shell__scroll {
   min-height: 0;
   overflow-y: auto;
-  padding: 1rem;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(200, 57, 43, 0.65) rgba(1, 13, 39, 0.08);
+  padding-bottom: 0.25rem;
 }
 
 .shell__scroll::-webkit-scrollbar {
@@ -433,8 +649,8 @@ function confirmLogout() {
 .logout-modal {
   position: fixed;
   inset: 0;
-  background: rgba(1, 13, 39, 0.72);
-  backdrop-filter: blur(10px);
+  background: rgba(1, 13, 39, 0.76);
+  backdrop-filter: blur(14px);
   display: grid;
   place-items: center;
   z-index: 80;
@@ -443,18 +659,15 @@ function confirmLogout() {
 
 .logout-modal__panel {
   width: min(100%, 460px);
-  border-radius: 28px;
-  background: #fefefe;
-  border: 1px solid rgba(1, 13, 39, 0.12);
-  box-shadow: 0 40px 120px rgba(1, 13, 39, 0.32);
   padding: 1.5rem;
   display: grid;
   gap: 0.85rem;
   text-align: center;
 
   h2 {
-    font-size: 1.6rem;
-    letter-spacing: -0.04em;
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    letter-spacing: -0.05em;
     color: $primary-dark;
   }
 
@@ -475,60 +688,50 @@ function confirmLogout() {
   flex-wrap: wrap;
 }
 
-.ghost-button,
-.danger-button {
-  border-radius: 14px;
-  padding: 0.85rem 1rem;
-  border: 1px solid rgba(1, 13, 39, 0.12);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-}
-
-.ghost-button {
-  background: rgba(1, 13, 39, 0.03);
-  color: $primary-dark;
-}
-
-.danger-button {
-  background: linear-gradient(135deg, $primary-dark, $accent-red);
-  color: $text-light;
-}
-
-@media (min-width: 1100px) {
+@media (min-width: 900px) {
   .shell {
-    display: grid;
-    grid-template-columns: 320px minmax(0, 1fr);
-    height: 100vh;
-    overflow: hidden;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 1.25rem;
+    padding: 1.25rem;
   }
 
   .shell__sidebar {
-    height: 100vh;
-    padding: 1.5rem;
-    border-right: 1px solid rgba(254, 254, 254, 0.08);
-    border-bottom: 0;
+    position: sticky;
+    top: 1.25rem;
+    align-self: start;
+    max-height: calc(100vh - 2.5rem);
+    padding: 1.15rem;
   }
 
-  .shell__main {
-    height: 100vh;
-  }
-
-  .shell__scroll {
-    padding: 1.5rem;
-  }
-}
-
-@media (min-width: 720px) {
   .topbar {
-    flex-direction: row;
+    padding: 1.4rem 1.5rem;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
   }
 
   .topbar__actions {
-    width: auto;
+    justify-items: end;
+  }
+
+  .topbar__stats {
+    grid-template-columns: repeat(2, max-content);
+    justify-content: end;
+  }
+}
+
+@media (min-width: 1280px) {
+  .shell {
+    grid-template-columns: 360px minmax(0, 1fr);
+    padding: 1.5rem;
+    gap: 1.5rem;
+  }
+
+  .shell__sidebar {
+    padding: 1.35rem;
+  }
+
+  .topbar {
+    padding: 1.6rem;
   }
 }
 </style>

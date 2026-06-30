@@ -24,3 +24,18 @@ $alert-warning-bg: rgba($alert-warning, 0.1);
 $alert-info-bg: rgba($alert-info, 0.1);
 $alert-success-bg: rgba($alert-success, 0.1);
 $alert-error-bg: rgba($alert-error, 0.1);
+
+$radius-xs: 10px;
+$radius-sm: 14px;
+$radius-md: 18px;
+$radius-lg: 24px;
+$radius-xl: 32px;
+$radius-2xl: 40px;
+
+$shadow-soft: 0 18px 50px rgba(1, 13, 39, 0.12);
+$shadow-card: 0 28px 80px rgba(1, 13, 39, 0.18);
+$shadow-ambient: 0 40px 120px rgba(1, 13, 39, 0.32);
+
+$surface-strong: rgba(254, 254, 254, 0.96);
+$surface-glass: rgba(254, 254, 254, 0.08);
+$surface-dark: rgba(1, 13, 39, 0.9);
