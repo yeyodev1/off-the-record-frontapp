@@ -20,7 +20,15 @@ export interface ModuleConfig {
   title: string
   description: string
   apiPath: string
-  accent: 'red' | 'gold' | 'blue'
+  icon: string
+  accent: 'primary' | 'secondary' | 'error'
+  presentation: {
+    variant: 'operator' | 'editorial' | 'archive' | 'broadcast' | 'ledger'
+    kicker: string
+    headline: string
+    description: string
+    badges: string[]
+  }
   fields: ModuleField[]
   columns: ModuleColumn[]
 }
@@ -32,7 +40,15 @@ export const moduleConfigs: ModuleConfig[] = [
     title: 'Usuarios',
     description: 'Administracion de cuentas, roles y estado de acceso.',
     apiPath: '/users',
-    accent: 'blue',
+    icon: 'fa-user-group',
+    accent: 'primary',
+    presentation: {
+      variant: 'operator',
+      kicker: 'Control de acceso',
+      headline: 'Usuarios y permisos con narrativa de comando',
+      description: 'Una interfaz de supervisión para cuentas, estados, roles y actividad reciente.',
+      badges: ['Acceso', 'Estado', 'Riesgo'],
+    },
     fields: [
       { name: 'name', label: 'Nombre', type: 'text', required: true },
       { name: 'lastname', label: 'Apellido', type: 'text' },
@@ -58,7 +74,15 @@ export const moduleConfigs: ModuleConfig[] = [
     title: 'Roles',
     description: 'Perfiles de acceso del sistema.',
     apiPath: '/roles',
-    accent: 'gold',
+    icon: 'fa-shield-halved',
+    accent: 'secondary',
+    presentation: {
+      variant: 'ledger',
+      kicker: 'Gobierno del sistema',
+      headline: 'Roles como matriz de decisión y seguridad',
+      description: 'Visualiza cómo se distribuye el poder de edición y administración en el panel.',
+      badges: ['Permisos', 'Jerarquía', 'Control'],
+    },
     fields: [{ name: 'name', label: 'Nombre', type: 'text', required: true }],
     columns: [
       { key: 'name', label: 'Nombre' },
@@ -71,7 +95,15 @@ export const moduleConfigs: ModuleConfig[] = [
     title: 'Categorias',
     description: 'Clasificacion editorial para articulos y exclusivos.',
     apiPath: '/types',
-    accent: 'gold',
+    icon: 'fa-tags',
+    accent: 'secondary',
+    presentation: {
+      variant: 'editorial',
+      kicker: 'Taxonomía editorial',
+      headline: 'Categorias pensadas como una portada dinámica',
+      description: 'Agrupa el contenido en capas visuales que priorizan legibilidad y ritmo.',
+      badges: ['Secciones', 'Etiquetas', 'Orden'],
+    },
     fields: [{ name: 'name', label: 'Nombre', type: 'text', required: true }],
     columns: [
       { key: 'name', label: 'Nombre' },
@@ -84,7 +116,15 @@ export const moduleConfigs: ModuleConfig[] = [
     title: 'Articulos',
     description: 'Piezas editoriales y su contenido principal.',
     apiPath: '/articles',
-    accent: 'red',
+    icon: 'fa-newspaper',
+    accent: 'error',
+    presentation: {
+      variant: 'editorial',
+      kicker: 'Laboratorio de historias',
+      headline: 'Articulos con layout de revista y control de detalle',
+      description: 'Edicion, resumen, estados y metadatos en un flujo que se siente premium.',
+      badges: ['Story', 'Preview', 'Publicacion'],
+    },
     fields: [
       { name: 'title', label: 'Titulo', type: 'text', required: true },
       { name: 'key', label: 'Clave', type: 'text' },
@@ -109,7 +149,15 @@ export const moduleConfigs: ModuleConfig[] = [
     title: 'Exclusivos',
     description: 'Contenido premium y su audiencia asociada.',
     apiPath: '/exclusives',
-    accent: 'red',
+    icon: 'fa-crown',
+    accent: 'error',
+    presentation: {
+      variant: 'broadcast',
+      kicker: 'Contenido premium',
+      headline: 'Exclusivos con dramatismo visual y foco absoluto',
+      description: 'Un tablero cinemático para piezas premium, audiencias y segmentación.',
+      badges: ['Premium', 'Audiencia', 'Expiración'],
+    },
     fields: [
       { name: 'title', label: 'Titulo', type: 'text', required: true },
       { name: 'summary', label: 'Resumen', type: 'textarea' },
@@ -133,7 +181,15 @@ export const moduleConfigs: ModuleConfig[] = [
     title: 'Notificaciones',
     description: 'Mensajes y avisos enviados a usuarios.',
     apiPath: '/notifications',
-    accent: 'blue',
+    icon: 'fa-bell',
+    accent: 'primary',
+    presentation: {
+      variant: 'broadcast',
+      kicker: 'Difusion editorial',
+      headline: 'Notificaciones como una consola de transmisión',
+      description: 'El mensaje se siente como un envío directo, no como un CRUD frío.',
+      badges: ['Alerta', 'Segmento', 'Distribucion'],
+    },
     fields: [
       { name: 'message', label: 'Mensaje', type: 'textarea', required: true },
       { name: 'userId', label: 'Autor ID', type: 'number', required: true },
@@ -152,7 +208,15 @@ export const moduleConfigs: ModuleConfig[] = [
     title: 'Archivos',
     description: 'Metadatos de documentos y piezas cargadas.',
     apiPath: '/uploads',
-    accent: 'gold',
+    icon: 'fa-folder-open',
+    accent: 'secondary',
+    presentation: {
+      variant: 'archive',
+      kicker: 'Archivo y assets',
+      headline: 'Archivos organizados como una bóveda editorial',
+      description: 'Explora documentos y cargas con una jerarquía limpia y escaneable.',
+      badges: ['Archivo', 'Peso', 'Origen'],
+    },
     fields: [
       { name: 'url', label: 'URL', type: 'text', required: true },
       { name: 'name', label: 'Nombre', type: 'text', required: true },
@@ -170,7 +234,15 @@ export const moduleConfigs: ModuleConfig[] = [
     title: 'Extras',
     description: 'Flags operativos para analitica editorial.',
     apiPath: '/extras',
-    accent: 'blue',
+    icon: 'fa-chart-line',
+    accent: 'primary',
+    presentation: {
+      variant: 'ledger',
+      kicker: 'Señales internas',
+      headline: 'Extras con lectura analítica de comportamiento',
+      description: 'Flags, estados y contexto editorial en una sola vista de comando.',
+      badges: ['Deep', 'Interest', 'Reunion'],
+    },
     fields: [
       { name: 'deep', label: 'Deep', type: 'checkbox' },
       { name: 'deepdate', label: 'Fecha Deep', type: 'date' },
@@ -192,7 +264,15 @@ export const moduleConfigs: ModuleConfig[] = [
     title: 'Lecturas',
     description: 'Registro de lectura de articulos.',
     apiPath: '/logs',
-    accent: 'gold',
+    icon: 'fa-book-open-reader',
+    accent: 'secondary',
+    presentation: {
+      variant: 'ledger',
+      kicker: 'Lecturas y trazabilidad',
+      headline: 'Logs con estética de bitácora premium',
+      description: 'Un recorrido claro por eventos, lecturas y relaciones de consumo.',
+      badges: ['Auditoria', 'Tiempo', 'Historia'],
+    },
     fields: [
       { name: 'userId', label: 'Usuario ID', type: 'number', required: true },
       { name: 'articleId', label: 'Articulo ID', type: 'number', required: true },
@@ -209,7 +289,15 @@ export const moduleConfigs: ModuleConfig[] = [
     title: 'Lectura de Exclusivos',
     description: 'Registro de lectura de exclusivos.',
     apiPath: '/logexclusives',
-    accent: 'gold',
+    icon: 'fa-bookmark',
+    accent: 'secondary',
+    presentation: {
+      variant: 'ledger',
+      kicker: 'Lectura premium',
+      headline: 'Registros de exclusivos con foco de auditoría',
+      description: 'Seguimiento visual fuerte para entender qué contenido se consumió y cuándo.',
+      badges: ['Premium', 'Lectura', 'Rastro'],
+    },
     fields: [
       { name: 'userId', label: 'Usuario ID', type: 'number', required: true },
       { name: 'exclusiveId', label: 'Exclusivo ID', type: 'number', required: true },

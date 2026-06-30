@@ -3,12 +3,12 @@ defineProps<{
   title: string
   value: string | number
   detail: string
-  tone?: 'blue' | 'gold' | 'red'
+  tone?: 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'
 }>()
 </script>
 
 <template>
-  <article class="stat-card" :class="[`stat-card--${tone || 'blue'}`]">
+  <article class="stat-card" :class="[`stat-card--${tone || 'primary'}`]">
     <span>{{ title }}</span>
     <strong>{{ value }}</strong>
     <p>{{ detail }}</p>
@@ -44,16 +44,28 @@ defineProps<{
     color: rgba(1, 13, 39, 0.62);
   }
 
-  &--blue strong {
-    color: $primary;
+  &--primary strong {
+    color: $primary-dark;
   }
 
-  &--gold strong {
-    color: $secondary;
-  }
-
-  &--red strong {
+  &--secondary strong {
     color: $accent-red;
+  }
+
+  &--success strong {
+    color: $accent-red;
+  }
+
+  &--warning strong {
+    color: $alert-warning;
+  }
+
+  &--info strong {
+    color: $alert-info;
+  }
+
+  &--error strong {
+    color: $alert-error;
   }
 }
 </style>

@@ -1,22 +1,25 @@
-$primary: #2094d2;
-$primary-dark: #010d27;
+$primary: #2094D2;
+$primary-dark: #010D27;
 $primary-light: #fefefe;
 $secondary: #c9a84c;
-$accent-red: #c8392b;
-$accent-red-dark: #8a1f14;
-$cream: #f5f2ed;
-$ink: #080808;
-$surface: #ffffff;
-$surface-muted: rgba(1, 13, 39, 0.04);
 
 $white: #fefefe;
 $text-light: #fefefe;
-$text-secondary: rgba(1, 13, 39, 0.64);
+$text-secondary: #010D27;
 
-$alert-warning: #c9a84c;
-$alert-info: #2094d2;
-$alert-success: #15803d;
-$alert-error: #c8392b;
+$surface: #fefefe;
+$surface-muted: rgba(1, 13, 39, 0.04);
+$ink: #010D27;
+
+$cream: #f5f2ed;
+$black: #080808;
+$accent-red: #c8392b;
+$accent-red-dark: #8a1f14;
+
+$alert-warning: #f59e0b;
+$alert-info: #3b82f6;
+$alert-success: #10b981;
+$alert-error: #ef4444;
 $alert-warning-bg: rgba($alert-warning, 0.1);
 $alert-info-bg: rgba($alert-info, 0.1);
 $alert-success-bg: rgba($alert-success, 0.1);

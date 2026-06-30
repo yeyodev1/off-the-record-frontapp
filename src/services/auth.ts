@@ -18,12 +18,12 @@ export interface SignInResponse {
 
 class AuthService extends APIBase {
   async signIn(payload: { email: string; password: string }) {
-    const response = await this.post<SignInResponse>('/auth/sign-in', payload)
+    const response = await this.post<SignInResponse>('/sign-in', payload)
     return response.data
   }
 
   async refresh(refreshToken: string) {
-    const response = await this.post<{ accessToken: string }>('/auth/refresh-access-token', { refreshToken })
+    const response = await this.post<{ accessToken: string }>('/refresh-access-token', { refreshToken })
     return response.data
   }
 }

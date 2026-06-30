@@ -16,6 +16,19 @@ const editingId = ref<string | null>(null)
 const currentModule = computed(() => getModuleConfig(String(route.path).replace(/^\//, '')))
 const formState = reactive<Record<string, string | number | boolean | null>>({})
 
+const moduleTheme = computed(() => currentModule.value?.presentation.variant || 'operator')
+
+const heroStats = computed(() => {
+  const module = currentModule.value
+  if (!module) return []
+
+  return [
+    { label: module.presentation.badges[0] || 'Estado', value: module.title },
+    { label: module.presentation.badges[1] || 'Accion', value: module.accent.toUpperCase() },
+    { label: module.presentation.badges[2] || 'Total', value: String(total.value) },
+  ]
+})
+
 function normalizeDate(value: unknown) {
   if (!value) return ''
   const parsed = new Date(String(value))
@@ -168,23 +181,46 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="currentModule" class="module-page">
-    <section class="module-page__summary">
-      <div>
-        <span class="eyebrow">{{ currentModule.title }}</span>
-        <h2>{{ currentModule.description }}</h2>
+  <div v-if="currentModule" class="module-page" :class="[`module-page--${moduleTheme}`]">
+    <section class="module-hero">
+      <div class="module-hero__copy">
+        <span class="module-hero__kicker">
+          <i class="fa-solid fa-signal" aria-hidden="true"></i>
+          {{ currentModule.presentation.kicker }}
+        </span>
+        <h2>{{ currentModule.presentation.headline }}</h2>
+        <p>{{ currentModule.presentation.description }}</p>
+
+        <div class="module-tags">
+          <span v-for="badge in currentModule.presentation.badges" :key="badge">{{ badge }}</span>
+        </div>
       </div>
-      <div class="module-page__meta">
-        <strong>{{ total }}</strong>
-        <span>registros</span>
+
+      <div class="module-hero__panel">
+        <div class="hero-score">
+          <span>Registros</span>
+          <strong>{{ total }}</strong>
+        </div>
+        <div class="hero-stack">
+          <article v-for="item in heroStats" :key="item.label">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </article>
+        </div>
       </div>
     </section>
 
-    <section class="module-page__layout">
+    <section class="module-layout">
       <form class="editor" @submit.prevent="submitForm">
         <div class="editor__header">
-          <h3>{{ editingId ? 'Editar registro' : 'Crear registro' }}</h3>
-          <button type="button" class="ghost" @click="resetForm">Limpiar</button>
+          <div>
+            <span class="editor__eyebrow">{{ editingId ? 'Editar registro' : 'Crear registro' }}</span>
+            <h3>{{ currentModule.title }}</h3>
+          </div>
+          <button type="button" class="ghost" @click="resetForm">
+            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+            Limpiar
+          </button>
         </div>
 
         <label v-for="field in currentModule.fields" :key="field.name" class="field">
@@ -202,7 +238,7 @@ onMounted(() => {
             v-else-if="field.type === 'textarea'"
             :value="getTextValue(field.name)"
             @input="setFieldValue(field.name, ($event.target as HTMLTextAreaElement).value)"
-            rows="4"
+            rows="5"
           />
 
           <input
@@ -224,17 +260,31 @@ onMounted(() => {
         </label>
 
         <button class="primary" type="submit" :disabled="saving">
+          <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
           {{ saving ? 'Guardando...' : editingId ? 'Actualizar' : 'Crear' }}
         </button>
       </form>
 
-      <ModuleTable
-        :columns="currentModule.columns"
-        :rows="rows"
-        :loading="loading"
-        @edit="applyRow"
-        @remove="removeRow"
-      />
+      <section class="grid-stack">
+        <div class="grid-stack__head">
+          <div>
+            <span>Listado</span>
+            <h3>Registros recientes</h3>
+          </div>
+          <div class="search-pill">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input v-model="query" type="search" placeholder="Buscar" @change="loadRecords" />
+          </div>
+        </div>
+
+        <ModuleTable
+          :columns="currentModule.columns"
+          :rows="rows"
+          :loading="loading"
+          @edit="applyRow"
+          @remove="removeRow"
+        />
+      </section>
     </section>
   </div>
 </template>
@@ -247,75 +297,206 @@ onMounted(() => {
   gap: 1rem;
 }
 
-.module-page__summary {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.35rem;
-  border-radius: 28px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-
-  h2 {
-    margin-top: 0.4rem;
-    font-size: clamp(1.6rem, 3vw, 2.2rem);
-    letter-spacing: -0.04em;
-    max-width: 60ch;
+.module-page--operator {
+  .module-hero {
+    background: linear-gradient(135deg, rgba(1, 13, 39, 0.98), rgba(200, 57, 43, 0.92));
   }
 }
 
-.eyebrow {
+.module-page--editorial {
+  .module-hero {
+    background: linear-gradient(135deg, rgba(1, 13, 39, 0.98), rgba(1, 13, 39, 0.88));
+  }
+
+  .hero-stack article strong,
+  .hero-score strong {
+    color: $accent-red;
+  }
+}
+
+.module-page--archive {
+  .module-hero {
+    background: linear-gradient(135deg, rgba(1, 13, 39, 0.98), rgba(1, 13, 39, 0.9));
+  }
+
+  .module-tags span {
+    border-color: rgba(200, 57, 43, 0.3);
+    background: rgba(200, 57, 43, 0.08);
+  }
+}
+
+.module-page--broadcast {
+  .module-hero {
+    background: linear-gradient(135deg, rgba(1, 13, 39, 0.98), rgba(200, 57, 43, 0.95));
+  }
+}
+
+.module-page--ledger {
+  .module-hero {
+    background: linear-gradient(135deg, rgba(1, 13, 39, 0.98), rgba(1, 13, 39, 0.92));
+  }
+
+  .hero-score strong {
+    color: $primary-light;
+  }
+}
+
+.module-hero {
+  border-radius: 32px;
+  padding: 1.25rem;
+  color: $text-light;
+  display: grid;
+  gap: 1rem;
+  border: 1px solid rgba(254, 254, 254, 0.1);
+  box-shadow: 0 28px 80px rgba(1, 13, 39, 0.22);
+}
+
+.module-hero__copy {
+  display: grid;
+  gap: 0.9rem;
+
+  h2 {
+    font-size: clamp(2.2rem, 4vw, 4rem);
+    line-height: 0.94;
+    letter-spacing: -0.06em;
+    max-width: 12ch;
+  }
+
+  p {
+    max-width: 58ch;
+    color: rgba(254, 254, 254, 0.74);
+    font-size: 1.02rem;
+  }
+}
+
+.module-hero__kicker {
   display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: fit-content;
   padding: 0.45rem 0.7rem;
   border-radius: 999px;
-  border: 1px solid rgba(1, 13, 39, 0.08);
-  background: rgba(1, 13, 39, 0.03);
+  border: 1px solid rgba(254, 254, 254, 0.14);
+  background: rgba(255, 255, 255, 0.06);
   text-transform: uppercase;
   letter-spacing: 0.16em;
   font-size: 0.72rem;
+
+  i {
+    color: $accent-red;
+  }
 }
 
-.module-page__meta {
-  min-width: 120px;
-  padding: 1rem;
-  border-radius: 22px;
-  background: linear-gradient(140deg, rgba(1, 13, 39, 0.96), rgba(8, 8, 8, 0.96));
-  color: $text-light;
-  text-align: center;
-
-  strong {
-    display: block;
-    font-size: 2rem;
-    letter-spacing: -0.05em;
-  }
+.module-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 
   span {
-    font-size: 0.84rem;
-    color: rgba(254, 254, 254, 0.72);
+    padding: 0.5rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(254, 254, 254, 0.14);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(254, 254, 254, 0.88);
+    font-size: 0.78rem;
   }
 }
 
-.module-page__layout {
+.module-hero__panel {
   display: grid;
-  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.hero-score,
+.hero-stack article {
+  border-radius: 22px;
+  padding: 1rem;
+  border: 1px solid rgba(254, 254, 254, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.hero-score {
+  display: grid;
+  gap: 0.1rem;
+
+  span {
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(254, 254, 254, 0.72);
+  }
+
+  strong {
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1;
+    letter-spacing: -0.06em;
+  }
+}
+
+.hero-stack {
+  display: grid;
+  gap: 0.75rem;
+
+  article {
+    display: grid;
+    gap: 0.15rem;
+
+    span {
+      color: rgba(254, 254, 254, 0.68);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.7rem;
+    }
+
+    strong {
+      font-size: 1.05rem;
+      color: $accent-red;
+      letter-spacing: -0.03em;
+    }
+  }
+}
+
+.module-layout {
+  display: grid;
   gap: 1rem;
+}
+
+.editor,
+.grid-stack {
+  border-radius: 28px;
+  background: linear-gradient(180deg, #fefefe, #fafafa);
+  border: 1px solid rgba(1, 13, 39, 0.1);
+  box-shadow: 0 20px 60px rgba(1, 13, 39, 0.08);
 }
 
 .editor {
   display: grid;
   gap: 0.9rem;
   padding: 1.25rem;
-  border-radius: 28px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow);
 
   &__header {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  &__eyebrow {
+    display: inline-flex;
+    padding: 0.4rem 0.65rem;
+    border-radius: 999px;
+    background: rgba(200, 57, 43, 0.08);
+    color: $accent-red;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.7rem;
+  }
+
+  h3 {
+    margin-top: 0.45rem;
+    font-size: 1.6rem;
+    color: $primary-dark;
   }
 }
 
@@ -324,9 +505,9 @@ onMounted(() => {
   gap: 0.4rem;
 
   span {
-    font-size: 0.86rem;
-    font-weight: 600;
-    color: rgba(1, 13, 39, 0.72);
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: rgba(1, 13, 39, 0.82);
   }
 
   input,
@@ -335,8 +516,14 @@ onMounted(() => {
     border-radius: 16px;
     border: 1px solid rgba(1, 13, 39, 0.12);
     background: rgba(1, 13, 39, 0.02);
-    padding: 0.85rem 0.95rem;
+    padding: 0.9rem 0.95rem;
     outline: none;
+    color: $primary-dark;
+
+    &:focus {
+      border-color: rgba(200, 57, 43, 0.45);
+      box-shadow: 0 0 0 4px rgba(200, 57, 43, 0.08);
+    }
   }
 }
 
@@ -355,23 +542,115 @@ onMounted(() => {
 .ghost {
   border-radius: 14px;
   padding: 0.85rem 1rem;
-  border: 1px solid rgba(1, 13, 39, 0.1);
+  border: 1px solid rgba(1, 13, 39, 0.12);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .primary {
-  background: linear-gradient(135deg, $accent-red, $accent-red-dark);
+  background: linear-gradient(135deg, $primary-dark, $accent-red);
   color: $text-light;
   font-weight: 700;
 }
 
 .ghost {
   background: rgba(1, 13, 39, 0.03);
+  color: $primary-dark;
 }
 
-@media (max-width: 1100px) {
-  .module-page__layout {
-    grid-template-columns: 1fr;
+.grid-stack {
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+  overflow: hidden;
+}
+
+.grid-stack__head {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  align-items: flex-start;
+
+  span {
+    display: inline-block;
+    color: $accent-red;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.72rem;
+    margin-bottom: 0.3rem;
+  }
+
+  h3 {
+    font-size: 1.6rem;
+    color: $primary-dark;
+  }
+}
+
+.search-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(1, 13, 39, 0.12);
+  background: rgba(1, 13, 39, 0.03);
+  width: 100%;
+
+  i {
+    color: $accent-red;
+  }
+
+  input {
+    border: 0;
+    background: transparent;
+    outline: none;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (min-width: 900px) {
+  .module-layout,
+  .module-hero {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .module-hero {
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.75fr);
+  }
+
+  .module-layout {
+    grid-template-columns: minmax(320px, 430px) minmax(0, 1fr);
+  }
+
+  .editor__header,
+  .grid-stack__head {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .search-pill {
+    width: auto;
+  }
+}
+
+@media (min-width: 1200px) {
+  .grid-stack__head {
+    align-items: end;
+  }
+
+  .search-pill {
+    width: auto;
+
+    input {
+      min-width: 180px;
+      width: auto;
+    }
   }
 }
 </style>

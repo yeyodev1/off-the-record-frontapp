@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ModuleColumn } from '@/config/modules'
 
-defineProps<{
+const props = defineProps<{
   columns: ModuleColumn[]
   rows: Record<string, unknown>[]
   loading?: boolean
@@ -31,31 +31,63 @@ function formatValue(value: unknown, type?: ModuleColumn['type']) {
 
   return String(value)
 }
+
+function getPrimaryValue(row: Record<string, unknown>) {
+  const column = props.columns[0]
+  if (!column) return String(row._id || row.id || 'Registro')
+  return formatValue(row[column.key], column.type)
+}
 </script>
 
 <template>
   <div class="table-shell">
-    <table>
+    <div class="mobile-list">
+      <div v-if="loading" class="empty-state">Cargando...</div>
+      <div v-else-if="!rows.length" class="empty-state">Sin resultados</div>
+
+      <article v-for="row in rows" v-else :key="String(row._id || row.id)" class="row-card">
+        <header class="row-card__header">
+          <div>
+            <span class="row-card__eyebrow">{{ props.columns[0]?.label || 'Registro' }}</span>
+            <strong>{{ getPrimaryValue(row) }}</strong>
+          </div>
+
+          <div class="actions actions--stacked">
+            <button type="button" @click="$emit('edit', row)"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>Editar</button>
+            <button type="button" class="danger" @click="$emit('remove', row)"><i class="fa-solid fa-trash" aria-hidden="true"></i>Eliminar</button>
+          </div>
+        </header>
+
+        <div class="row-card__grid">
+          <div v-for="column in props.columns.slice(1)" :key="column.key">
+            <span>{{ column.label }}</span>
+            <strong>{{ formatValue(row[column.key], column.type) }}</strong>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <table class="desktop-table">
       <thead>
         <tr>
-          <th v-for="column in columns" :key="column.key">{{ column.label }}</th>
+          <th v-for="column in props.columns" :key="column.key">{{ column.label }}</th>
           <th>Acciones</th>
         </tr>
       </thead>
       <tbody>
         <tr v-if="loading">
-          <td :colspan="columns.length + 1">Cargando...</td>
+          <td :colspan="props.columns.length + 1">Cargando...</td>
         </tr>
         <tr v-else-if="!rows.length">
-          <td :colspan="columns.length + 1">Sin resultados</td>
+          <td :colspan="props.columns.length + 1">Sin resultados</td>
         </tr>
         <tr v-for="row in rows" v-else :key="String(row._id || row.id)">
-          <td v-for="column in columns" :key="column.key">
+          <td v-for="column in props.columns" :key="column.key">
             {{ formatValue(row[column.key], column.type) }}
           </td>
           <td class="actions">
-            <button type="button" @click="$emit('edit', row)">Editar</button>
-            <button type="button" class="danger" @click="$emit('remove', row)">Eliminar</button>
+            <button type="button" @click="$emit('edit', row)"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>Editar</button>
+            <button type="button" class="danger" @click="$emit('remove', row)"><i class="fa-solid fa-trash" aria-hidden="true"></i>Eliminar</button>
           </td>
         </tr>
       </tbody>
@@ -67,17 +99,80 @@ function formatValue(value: unknown, type?: ModuleColumn['type']) {
 @use '@/styles/colorVariables.module.scss' as *;
 
 .table-shell {
-  overflow: auto;
+  display: grid;
+  gap: 1rem;
+}
+
+.mobile-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.row-card,
+.desktop-table {
   border-radius: 24px;
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: var(--shadow);
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 840px;
+.row-card {
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.row-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+
+  strong {
+    display: block;
+    font-size: 1.1rem;
+    color: $primary-dark;
+    letter-spacing: -0.03em;
+    margin-top: 0.3rem;
+  }
+}
+
+.row-card__eyebrow {
+  display: inline-block;
+  color: $accent-red;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.68rem;
+}
+
+.row-card__grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+
+  div {
+    display: grid;
+    gap: 0.2rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(1, 13, 39, 0.08);
+  }
+
+  span {
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(1, 13, 39, 0.56);
+  }
+
+  strong {
+    font-size: 0.94rem;
+    color: $primary-dark;
+    word-break: break-word;
+  }
+}
+
+.desktop-table {
+  display: none;
+  overflow: auto;
 }
 
 th,
@@ -99,6 +194,7 @@ th {
 .actions {
   display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
 
   button {
     border: 1px solid rgba(1, 13, 39, 0.1);
@@ -109,9 +205,34 @@ th {
   }
 
   .danger {
-    border-color: rgba(200, 57, 43, 0.2);
-    background: rgba(200, 57, 43, 0.08);
-    color: $accent-red;
+    border-color: rgba(239, 68, 68, 0.2);
+    background: rgba(239, 68, 68, 0.08);
+    color: $alert-error;
+  }
+
+  i {
+    margin-right: 0.45rem;
+  }
+}
+
+.empty-state {
+  padding: 1rem;
+  border-radius: 20px;
+  border: 1px dashed rgba(1, 13, 39, 0.12);
+  background: rgba(1, 13, 39, 0.02);
+  color: rgba(1, 13, 39, 0.7);
+}
+
+@media (min-width: 900px) {
+  .mobile-list {
+    display: none;
+  }
+
+  .desktop-table {
+    display: block;
+    min-width: 840px;
+    width: 100%;
+    border-collapse: collapse;
   }
 }
 </style>
