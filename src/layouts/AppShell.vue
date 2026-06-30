@@ -459,7 +459,6 @@ onBeforeUnmount(() => {
   z-index: 1;
   display: grid;
   gap: 0.9rem;
-  overflow-y: auto;
   padding-right: 0.2rem;
 }
 
@@ -693,14 +692,30 @@ onBeforeUnmount(() => {
     grid-template-columns: 340px minmax(0, 1fr);
     gap: 1.25rem;
     padding: 1.25rem;
+    align-items: start;
   }
 
   .shell__sidebar {
     position: sticky;
     top: 1.25rem;
     align-self: start;
-    max-height: calc(100vh - 2.5rem);
+    height: calc(100vh - 2.5rem);
+    overflow-y: auto;
     padding: 1.15rem;
+  }
+
+  .shell__sidebar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .shell__sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 999px;
+  }
+
+  .shell__sidebar::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(200, 57, 43, 0.8));
+    border-radius: 999px;
   }
 
   .topbar {
