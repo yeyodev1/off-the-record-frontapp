@@ -1,0 +1,58 @@
+@use './colorVariables.module.scss' as *;
+@use './fonts.module.scss' as *;
+
+html, body {
+  margin: 0;
+  font-family: $font-principal;
+  min-height: 100%;
+}
+
+:root {
+  --bg: #{$white};
+  --text: #{$primary-dark};
+  --border: #{rgba($primary-dark, 0.08)};
+  --accent: #{$primary};
+  --accent-red: #{$accent-red};
+  --accent-gold: #{$secondary};
+  --surface: #{$surface};
+  --surface-muted: #{$surface-muted};
+  --cream: #{$cream};
+  --shadow: 0 20px 60px rgba(1, 13, 39, 0.08);
+}
+
+[data-theme='dark'] {
+  --bg: #{$primary-dark};
+  --text: #{$text-light};
+  --border: #{rgba($white, 0.12)};
+  --accent: #{$primary};
+  --accent-red: #{$accent-red};
+  --accent-gold: #{$secondary};
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-muted: rgba(255, 255, 255, 0.06);
+  --cream: #{$cream};
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(32, 148, 210, 0.22);
+}
