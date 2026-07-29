@@ -296,6 +296,27 @@ button:disabled {
   filter: blur(4px);
 }
 
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 180ms ease;
+}
+
+.modal-enter-active > *,
+.modal-leave-active > * {
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from > *,
+.modal-leave-to > * {
+  opacity: 0;
+  transform: translateY(16px) scale(0.98);
+}
+
 .stagger-item {
   animation: stagger-in 420ms ease both;
 }

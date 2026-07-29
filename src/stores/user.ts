@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 
 export interface UserState {
   token: string | null
+  legacyToken: string | null
   id: string | null
   name: string | null
   email: string | null
@@ -12,6 +13,7 @@ export interface UserState {
 export const useUserStore = defineStore('user', {
   state: (): UserState => ({
     token: null,
+    legacyToken: null,
     id: null,
     name: null,
     email: null,
@@ -22,12 +24,14 @@ export const useUserStore = defineStore('user', {
   actions: {
     hydrate() {
       const token = localStorage.getItem('access_token')
+      const legacyToken = localStorage.getItem('legacy_access_token')
       const id = localStorage.getItem('user_id')
       const roleId = localStorage.getItem('role_id')
       const name = localStorage.getItem('user_name')
       const email = localStorage.getItem('user_email')
 
       this.token = token
+      this.legacyToken = legacyToken
       this.isAuthenticated = !!token
       this.id = id || null
       this.roleId = roleId ? Number(roleId) : null
@@ -35,8 +39,9 @@ export const useUserStore = defineStore('user', {
       this.email = email
     },
 
-    setSession(payload: { token: string; id?: string; name?: string; email?: string; roleId?: number }) {
-      this.token = payload.token
+    setSession(payload: { token?: string | null; legacyToken?: string | null; id?: string; name?: string; email?: string; roleId?: number }) {
+      this.token = payload.token || null
+      this.legacyToken = payload.legacyToken || null
       if (payload.id !== undefined) {
         this.id = payload.id
         try {
@@ -61,14 +66,20 @@ export const useUserStore = defineStore('user', {
           localStorage.setItem('role_id', String(payload.roleId))
         } catch {}
       }
-      this.isAuthenticated = true
+      this.isAuthenticated = !!(payload.token || payload.legacyToken)
       try {
-        localStorage.setItem('access_token', payload.token)
+        if (payload.token) {
+          localStorage.setItem('access_token', payload.token)
+        }
+        if (payload.legacyToken) {
+          localStorage.setItem('legacy_access_token', payload.legacyToken)
+        }
       } catch {}
     },
 
     clear() {
       this.token = null
+      this.legacyToken = null
       this.id = null
       this.name = null
       this.email = null
@@ -76,6 +87,7 @@ export const useUserStore = defineStore('user', {
       this.isAuthenticated = false
       try {
         localStorage.removeItem('access_token')
+        localStorage.removeItem('legacy_access_token')
         localStorage.removeItem('user_id')
         localStorage.removeItem('role_id')
         localStorage.removeItem('user_name')

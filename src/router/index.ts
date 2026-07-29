@@ -10,18 +10,40 @@ const routes: Array<RouteRecordRaw> = [
   },
   {
     path: '/',
+    redirect: '/login',
+  },
+  {
+    path: '/reader',
+    name: 'Reader',
+    component: () => import('../views/ReaderView.vue'),
+    meta: { title: 'Lecturas', requiresAuth: true },
+  },
+  {
+    path: '/admin',
     component: () => import('../layouts/AppShell.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, requiresEditorialAccess: true },
     children: [
       {
         path: '',
-        redirect: '/dashboard',
+        redirect: '/admin/dashboard',
       },
       {
         path: 'dashboard',
         name: 'Dashboard',
         component: () => import('../views/DashboardView.vue'),
         meta: { title: 'Dashboard', requiresAuth: true },
+      },
+      {
+        path: 'articles/new',
+        name: 'ArticleCreate',
+        component: () => import('../views/ArticleEditorView.vue'),
+        meta: { title: 'Nueva publicación', requiresAuth: true },
+      },
+      {
+        path: 'articles/:id/edit',
+        name: 'ArticleEdit',
+        component: () => import('../views/ArticleEditorView.vue'),
+        meta: { title: 'Editar publicación', requiresAuth: true },
       },
       ...moduleConfigs.map((module) => ({
         path: module.path,
@@ -59,8 +81,13 @@ router.beforeEach((to, _from, next) => {
     return next({ path: '/login', replace: true })
   }
 
+  const roleId = Number(localStorage.getItem('role_id'))
+  if (to.matched.some((record) => record.meta?.requiresEditorialAccess) && ![1, 3].includes(roleId)) {
+    return next({ path: '/reader', replace: true })
+  }
+
   if (to.path === '/login' && hasToken) {
-    return next({ path: '/dashboard', replace: true })
+    return next({ path: roleId === 1 || roleId === 3 ? '/admin/dashboard' : '/reader', replace: true })
   }
 
   next()

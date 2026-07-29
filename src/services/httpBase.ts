@@ -1,16 +1,21 @@
 import axios from 'axios'
 import type { AxiosResponse, AxiosRequestConfig } from 'axios'
 
+export interface APIBaseOptions {
+  baseUrl?: string
+  tokenStorageKey?: string
+}
+
 class APIBase {
-  private baseUrl: string
+  protected baseUrl: string
+  protected tokenStorageKey: string
   private axiosInstance = axios.create()
 
-  constructor() {
-    const raw = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8100/api'
+  constructor(options: APIBaseOptions = {}) {
+    const raw = options.baseUrl || (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8100/api'
     const trimmed = raw.replace(/\/+$/, '')
-    this.baseUrl = trimmed.endsWith('/api') || /\/api\//.test(trimmed)
-      ? trimmed
-      : `${trimmed}/api`
+    this.baseUrl = trimmed
+    this.tokenStorageKey = options.tokenStorageKey || 'access_token'
     this.setupInterceptors()
   }
 
@@ -35,7 +40,7 @@ class APIBase {
   }
 
   private buildUrl(endpoint: string): string {
-    return `${this.baseUrl}/${endpoint}`
+    return `${this.baseUrl}/${endpoint.replace(/^\/+/, '')}`
   }
 
   protected getHeaders(): Record<string, string> {
@@ -43,9 +48,9 @@ class APIBase {
       'Content-Type': 'application/json',
     }
 
-    const accessToken = localStorage.getItem('access_token')
+    const accessToken = localStorage.getItem(this.tokenStorageKey)
     if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`
+      headers['Authorization'] = accessToken
     }
 
     return headers

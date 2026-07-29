@@ -16,38 +16,36 @@ const menuSections = computed(() => [
   {
     title: 'Principal',
     icon: 'fa-gauge-high',
-    items: [{ label: 'Dashboard', path: '/dashboard', icon: 'fa-gauge-high' }],
+    items: [{ label: 'Dashboard', path: '/admin/dashboard', icon: 'fa-gauge-high' }],
   },
   {
     title: 'Editorial',
     icon: 'fa-newspaper',
     items: moduleConfigs
-      .filter((module) => ['articles', 'types', 'exclusives', 'notifications'].includes(module.key))
-      .map((module) => ({ label: module.title, path: `/${module.path}`, icon: module.icon })),
+      .filter((module) => ['articles'].includes(module.key))
+      .map((module) => ({ label: module.title, path: `/admin/${module.path}`, icon: module.icon })),
   },
   {
     title: 'Administración',
     icon: 'fa-sliders',
     items: moduleConfigs
-      .filter((module) => ['users', 'roles', 'uploads'].includes(module.key))
-      .map((module) => ({ label: module.title, path: `/${module.path}`, icon: module.icon })),
+      .filter((module) => userStore.roleId === 1 && ['users'].includes(module.key))
+      .map((module) => ({ label: module.title, path: `/admin/${module.path}`, icon: module.icon })),
   },
   {
-    title: 'Control',
-    icon: 'fa-chart-line',
-    items: moduleConfigs
-      .filter((module) => ['extras', 'logs', 'logexclusives'].includes(module.key))
-      .map((module) => ({ label: module.title, path: `/${module.path}`, icon: module.icon })),
+    title: 'Sitio público',
+    icon: 'fa-arrow-up-right-from-square',
+    items: [{ label: 'Ver noticias', path: '/', icon: 'fa-newspaper' }],
   },
 ])
 
 const pageTitle = computed(() => String(route.meta.title || 'Off The Record'))
 const pageSubtitle = computed(() => {
   if (route.meta.moduleKey) {
-    return 'Explora, edita y publica con un ritmo visual más cinematográfico.'
+    return 'Consulta los registros y realiza las acciones disponibles en este módulo.'
   }
 
-  return 'Centro operativo editorial con navegación, métricas y acceso rápido.'
+  return 'Centro operativo para redactar, programar y publicar noticias.'
 })
 
 const activeModule = computed(() =>
@@ -74,7 +72,7 @@ const userInitials = computed(() => {
   )
 })
 
-const liveStatus = computed(() => (activeModule.value ? activeModule.value.presentation.variant : 'global'))
+const liveStatus = computed(() => (activeModule.value ? 'Gestión' : 'Inicio'))
 
 function openLogoutModal() {
   showLogoutModal.value = true
@@ -91,6 +89,10 @@ function confirmLogout() {
 
 function openCreateModal() {
   if (!activeModule.value) return
+  if (activeModule.value.key === 'articles') {
+    void router.push('/admin/articles/new')
+    return
+  }
   uiStore.openEditor(activeModule.value.key, 'create')
 }
 
@@ -123,14 +125,14 @@ onBeforeUnmount(() => {
         <div class="brand-panel__copy">
           <span class="eyebrow">Off The Record</span>
           <strong>Admin Web</strong>
-          <p>Editorial command center</p>
+          <p>Administración editorial</p>
         </div>
       </div>
 
       <section class="sidebar-stamp">
-        <span class="section-label">Navigation rail</span>
+        <span class="section-label">Sección actual</span>
         <h2 class="section-title">{{ pageTitle }}</h2>
-        <p>Acceso rápido, jerarquía clara y un ritmo visual más cinematográfico.</p>
+        <p>Accesos directos para gestionar el contenido y los usuarios.</p>
       </section>
 
       <section class="profile-panel">
@@ -182,7 +184,7 @@ onBeforeUnmount(() => {
     </aside>
 
     <main class="shell__main">
-      <header class="topbar surface-card">
+      <header v-if="route.meta.moduleKey !== 'articles'" class="topbar surface-card">
         <div class="topbar__copy">
           <span class="eyebrow">{{ route.meta.moduleKey ? 'Módulo' : 'Vista' }}</span>
           <h1 class="section-title">{{ pageTitle }}</h1>
@@ -227,11 +229,12 @@ onBeforeUnmount(() => {
 
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="showLogoutModal" class="logout-modal" @click.self="closeLogoutModal">
-          <div class="logout-modal__panel modal-surface">
-            <i class="fa-solid fa-triangle-exclamation logout-modal__icon" aria-hidden="true"></i>
-            <h2>Cerrar sesión</h2>
-            <p>¿Seguro que quieres salir del panel editorial?</p>
+          <div v-if="showLogoutModal" class="logout-modal" @click.self="closeLogoutModal">
+            <div class="logout-modal__panel modal-surface">
+            <div class="logout-modal__icon"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></div>
+            <span class="logout-modal__eyebrow">Sesión actual</span>
+            <h2>¿Cerrar sesión?</h2>
+            <p>Vas a salir del panel. Podrás volver a ingresar con tus credenciales cuando lo necesites.</p>
             <div class="logout-modal__actions">
               <button type="button" class="ghost-button" @click="closeLogoutModal">Cancelar</button>
               <button type="button" class="danger-button" @click="confirmLogout">
@@ -553,8 +556,10 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 1rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 243, 238, 0.94)),
-    radial-gradient(circle at top right, rgba(200, 57, 43, 0.08), transparent 30%);
+    radial-gradient(circle at 100% 0%, rgba(200, 57, 43, 0.22), transparent 34%),
+    radial-gradient(circle at 66% 100%, rgba(32, 148, 210, 0.16), transparent 38%),
+    linear-gradient(135deg, #0b1429, #101f3d);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .topbar__copy {
@@ -563,12 +568,12 @@ onBeforeUnmount(() => {
 
   .section-title {
     font-size: clamp(2rem, 4vw, 3.2rem);
-    color: $primary-dark;
+    color: $text-light;
   }
 
   .section-copy {
     max-width: 62ch;
-    color: rgba(1, 13, 39, 0.68);
+    color: rgba(246, 241, 232, 0.72);
   }
 }
 
@@ -586,8 +591,8 @@ onBeforeUnmount(() => {
 .topbar-stat {
   padding: 0.85rem 0.95rem;
   border-radius: 18px;
-  background: rgba(1, 13, 39, 0.04);
-  border: 1px solid rgba(1, 13, 39, 0.08);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   display: grid;
   gap: 0.15rem;
 
@@ -595,11 +600,11 @@ onBeforeUnmount(() => {
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.16em;
-    color: rgba(1, 13, 39, 0.56);
+    color: rgba(246, 241, 232, 0.62);
   }
 
   strong {
-    color: $primary-dark;
+    color: $text-light;
     font-size: 0.94rem;
   }
 }
@@ -616,9 +621,9 @@ onBeforeUnmount(() => {
   gap: 0.5rem;
   padding: 0.78rem 0.95rem;
   border-radius: 999px;
-  border: 1px solid rgba(1, 13, 39, 0.1);
-  background: rgba(1, 13, 39, 0.03);
-  color: $primary-dark;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: $text-light;
 
   i {
     color: $accent-red;
@@ -661,7 +666,8 @@ onBeforeUnmount(() => {
   padding: 1.5rem;
   display: grid;
   gap: 0.85rem;
-  text-align: center;
+  text-align: left;
+  border: 1px solid rgba(1, 13, 39, 0.12);
 
   h2 {
     font-family: var(--font-display);
@@ -676,15 +682,35 @@ onBeforeUnmount(() => {
 }
 
 .logout-modal__icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
   color: $accent-red;
-  font-size: 2rem;
+  background: rgba(200, 57, 43, 0.1);
+  font-size: 1.35rem;
+}
+
+.logout-modal__eyebrow {
+  color: $accent-red;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .logout-modal__actions {
   display: flex;
   gap: 0.75rem;
-  justify-content: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.logout-modal__actions .ghost-button {
+  background: rgba(1, 13, 39, 0.06);
+  border-color: rgba(1, 13, 39, 0.14);
+  color: $primary-dark;
 }
 
 @media (min-width: 900px) {

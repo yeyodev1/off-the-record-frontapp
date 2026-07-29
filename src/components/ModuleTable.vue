@@ -41,7 +41,9 @@ function getPrimaryValue(row: Record<string, unknown>) {
 
 <template>
   <div class="table-shell">
-    <div v-if="loading" class="table-state surface-card">Cargando registros...</div>
+    <div v-if="loading" class="table-skeleton" aria-label="Cargando registros">
+      <span v-for="index in 5" :key="index"></span>
+    </div>
     <div v-else-if="!rows.length" class="table-state surface-card">Sin resultados</div>
 
     <template v-else>
@@ -123,18 +125,39 @@ function getPrimaryValue(row: Record<string, unknown>) {
   min-width: 0;
 }
 
+.table-skeleton {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.05);
+
+  span {
+    height: 62px;
+    border-radius: 14px;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
+    background-size: 200% 100%;
+    animation: tableShimmer 1.25s infinite;
+  }
+}
+
+@keyframes tableShimmer {
+  to { background-position: -200% 0; }
+}
+
 .table-state {
   padding: 1rem;
-  border: 1px dashed rgba(1, 13, 39, 0.14);
-  color: rgba(1, 13, 39, 0.72);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 247, 243, 0.96));
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  color: rgba(246, 241, 232, 0.72);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .row-card {
   padding: 1rem;
   display: grid;
   gap: 1rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 247, 243, 0.96));
+  background: linear-gradient(145deg, #172645, #0d1830);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .row-card__header {
@@ -146,7 +169,7 @@ function getPrimaryValue(row: Record<string, unknown>) {
     margin-top: 0.3rem;
     font-family: var(--font-display);
     font-size: 1.1rem;
-    color: $primary-dark;
+    color: $text-light;
     letter-spacing: -0.03em;
   }
 }
@@ -165,6 +188,13 @@ function getPrimaryValue(row: Record<string, unknown>) {
   flex-wrap: wrap;
 }
 
+.row-card .secondary-button,
+.table-shell__desktop .secondary-button {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: $text-light;
+}
+
 .row-card__grid {
   display: grid;
   gap: 0.75rem;
@@ -174,20 +204,20 @@ function getPrimaryValue(row: Record<string, unknown>) {
     display: grid;
     gap: 0.2rem;
     padding-top: 0.75rem;
-    border-top: 1px solid rgba(1, 13, 39, 0.08);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   span {
     font-size: 0.72rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: rgba(1, 13, 39, 0.56);
+    color: rgba(246, 241, 232, 0.62);
   }
 
   strong {
     font-family: var(--font-display);
     font-size: 0.96rem;
-    color: $primary-dark;
+    color: $text-light;
     word-break: break-word;
   }
 }
@@ -196,6 +226,8 @@ function getPrimaryValue(row: Record<string, unknown>) {
   display: none;
   overflow: auto;
   min-width: 0;
+  background: #101c36;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .desktop-table {
@@ -215,7 +247,7 @@ td {
 th {
   position: sticky;
   top: 0;
-  background: rgba(1, 13, 39, 0.04);
+  background: #172645;
   font-size: 0.78rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;

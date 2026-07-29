@@ -26,8 +26,9 @@ defineProps<{
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at top right, rgba(200, 57, 43, 0.08), transparent 26%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 246, 242, 0.96));
+    radial-gradient(circle at top right, rgba(200, 57, 43, 0.18), transparent 34%),
+    linear-gradient(145deg, #121f3c, #0b1429);
+  border-color: rgba(255, 255, 255, 0.12);
 
   &::after {
     content: '';
@@ -46,7 +47,7 @@ defineProps<{
     font-size: 0.74rem;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: rgba(1, 13, 39, 0.52);
+    color: rgba(246, 241, 232, 0.62);
   }
 
   strong {
@@ -55,13 +56,13 @@ defineProps<{
     font-family: var(--font-display);
     font-size: clamp(2rem, 4vw, 3rem);
     letter-spacing: -0.06em;
-    color: $primary-dark;
+    color: $text-light;
   }
 
   p {
     position: relative;
     z-index: 1;
-    color: rgba(1, 13, 39, 0.68);
+    color: rgba(246, 241, 232, 0.72);
   }
 
   &--primary {

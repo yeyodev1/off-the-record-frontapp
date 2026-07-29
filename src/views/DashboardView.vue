@@ -5,17 +5,18 @@ import { resourceService } from '@/services/resources'
 import StatCard from '@/components/StatCard.vue'
 
 const counts = ref<Record<string, number>>({})
+const loading = ref(true)
 
 const totalRecords = computed(() =>
   Object.values(counts.value).reduce((sum, value) => sum + (Number(value) || 0), 0),
 )
 
-const activeModules = computed(() =>
-  moduleConfigs.filter((module) => (counts.value[module.key] ?? 0) > 0).length,
-)
+const dashboardModules = computed(() => moduleConfigs.filter((module) => ['articles', 'users'].includes(module.key)))
+
+const activeModules = computed(() => dashboardModules.value.filter((module) => (counts.value[module.key] ?? 0) > 0).length)
 
 const criticalModules = computed(() =>
-  ['users', 'articles', 'exclusives'].filter((key) => (counts.value[key] ?? 0) > 0).length,
+  ['users', 'articles'].filter((key) => (counts.value[key] ?? 0) > 0).length,
 )
 
 const kpis = computed(() => [
@@ -34,16 +35,12 @@ const kpis = computed(() => [
   {
     title: 'Módulos clave',
     value: criticalModules.value,
-    detail: 'Usuarios, artículos y exclusivos',
+    detail: 'Usuarios y artículos',
     tone: 'error' as const,
   },
 ])
 
-const summaryModules = computed(() => [
-  moduleConfigs.find((module) => module.key === 'users'),
-  moduleConfigs.find((module) => module.key === 'articles'),
-  moduleConfigs.find((module) => module.key === 'exclusives'),
-].filter(Boolean))
+const summaryModules = dashboardModules
 
 const lastSyncLabel = computed(() => {
   const now = new Date()
@@ -51,16 +48,20 @@ const lastSyncLabel = computed(() => {
 })
 
 onMounted(async () => {
-  await Promise.all(
-    moduleConfigs.map(async (module) => {
+  try {
+    await Promise.all(
+    dashboardModules.value.map(async (module) => {
       try {
-        const response = await resourceService.count(module.apiPath)
-        counts.value[module.key] = response.count
+        const response = await resourceService.list(module.apiPath)
+        counts.value[module.key] = response.total
       } catch {
         counts.value[module.key] = 0
       }
     }),
-  )
+    )
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
@@ -69,22 +70,22 @@ onMounted(async () => {
     <section class="dashboard-hero glass-card">
       <div class="dashboard-hero__copy">
         <span class="eyebrow"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Panel de control</span>
-        <h2 class="section-title">Resumen operativo</h2>
-        <p class="section-copy">
-          Vista unificada del estado del sistema. Navega por módulos, mide volumen y entra en flujo editorial sin fricción.
+          <h2 class="section-title">Centro de control</h2>
+          <p class="section-copy">
+            Gestiona artículos, usuarios y publicaciones desde un solo lugar.
         </p>
 
         <div class="dashboard-hero__meta">
           <span class="chip"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ lastSyncLabel }}</span>
-          <span class="chip"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> {{ moduleConfigs.length }} módulos</span>
+          <span class="chip"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> {{ dashboardModules.length }} módulos</span>
         </div>
       </div>
 
       <div class="dashboard-hero__signal">
         <div class="signal-card signal-card--primary">
           <span>Flujo</span>
-          <strong>Editorial live</strong>
-          <p>Lectura rápida con brillo, contraste y ritmo visual.</p>
+          <strong>Publicaciones</strong>
+          <p>Crea, programa y publica noticias cuando estén listas.</p>
         </div>
 
         <div class="signal-grid">
@@ -101,7 +102,11 @@ onMounted(async () => {
     </section>
 
     <section class="dashboard-metrics">
+      <template v-if="loading">
+        <div v-for="index in 3" :key="index" class="dashboard-skeleton"></div>
+      </template>
       <StatCard
+        v-else
         v-for="(kpi, index) in kpis"
         :key="kpi.title"
         :title="kpi.title"
@@ -124,7 +129,7 @@ onMounted(async () => {
         </div>
 
         <div class="module-list">
-          <RouterLink v-for="module in moduleConfigs" :key="module.key" :to="`/${module.path}`" class="module-item">
+          <RouterLink v-for="module in dashboardModules" :key="module.key" :to="`/admin/${module.path}`" class="module-item">
             <div class="module-item__icon">
               <i class="fa-solid" :class="module.icon" aria-hidden="true"></i>
             </div>
@@ -151,7 +156,7 @@ onMounted(async () => {
         </div>
 
         <div class="quick-list">
-          <RouterLink v-for="module in summaryModules" :key="module!.key" :to="`/${module!.path}`" class="quick-item">
+          <RouterLink v-for="module in summaryModules" :key="module!.key" :to="`/admin/${module!.path}`" class="quick-item">
             <i class="fa-solid" :class="module!.icon" aria-hidden="true"></i>
             <div class="quick-item__copy">
               <strong>{{ module!.title }}</strong>
@@ -163,7 +168,7 @@ onMounted(async () => {
         <div class="dashboard-note glass-card">
           <span class="section-label">Estado</span>
           <p>
-            La experiencia ya responde a una narrativa más experimental: superficies, contrastes altos y jerarquías más teatrales.
+            Usa los accesos rápidos para ir directamente a las tareas más frecuentes.
           </p>
         </div>
       </aside>
@@ -216,8 +221,9 @@ onMounted(async () => {
   min-width: 0;
 
   .section-title {
-    font-size: clamp(2.4rem, 8vw, 4.5rem);
-    max-width: 10ch;
+    font-size: clamp(2.35rem, 4.5vw, 4rem);
+    max-width: 9ch;
+    overflow-wrap: anywhere;
   }
 
   .section-copy {
@@ -239,6 +245,7 @@ onMounted(async () => {
   display: grid;
   gap: 0.8rem;
   min-width: 0;
+  align-self: stretch;
 }
 
 .signal-card,
@@ -298,6 +305,16 @@ onMounted(async () => {
   min-height: 100%;
 }
 
+.dashboard-skeleton {
+  min-height: 160px;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,.15), rgba(255,255,255,.06));
+  background-size: 200% 100%;
+  animation: dashboardShimmer 1.2s infinite;
+}
+
+@keyframes dashboardShimmer { to { background-position: -200% 0; } }
+
 .dashboard-grid {
   display: grid;
   gap: 1rem;
@@ -309,6 +326,8 @@ onMounted(async () => {
   display: grid;
   gap: 1rem;
   min-width: 0;
+  background: linear-gradient(145deg, #121f3c, #0b1429);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .dashboard-panel__head {
@@ -319,7 +338,7 @@ onMounted(async () => {
 
   .section-title {
     font-size: clamp(1.5rem, 4vw, 2.2rem);
-    color: $primary-dark;
+    color: $text-light;
   }
 }
 
@@ -348,8 +367,8 @@ onMounted(async () => {
   align-items: center;
   padding: 1rem;
   border-radius: 22px;
-  background: linear-gradient(145deg, #ffffff, #f8f7f4);
-  border: 1px solid rgba(1, 13, 39, 0.06);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
   min-width: 0;
 
@@ -366,7 +385,7 @@ onMounted(async () => {
   display: grid;
   place-items: center;
   border-radius: 16px;
-  background: rgba(1, 13, 39, 0.04);
+    background: rgba(255, 255, 255, 0.08);
   color: $accent-red;
   font-size: 1.1rem;
 }
@@ -380,12 +399,12 @@ onMounted(async () => {
     font-size: 1.05rem;
     font-weight: 800;
     letter-spacing: -0.03em;
-    color: $primary-dark;
+    color: $text-light;
   }
 
   p {
     margin-top: 0.25rem;
-    color: rgba(1, 13, 39, 0.62);
+    color: rgba(246, 241, 232, 0.7);
     font-size: 0.9rem;
   }
 }
@@ -403,7 +422,7 @@ onMounted(async () => {
   }
 
   i {
-    color: rgba(1, 13, 39, 0.42);
+    color: rgba(246, 241, 232, 0.52);
   }
 }
 
@@ -473,7 +492,7 @@ onMounted(async () => {
   }
 
   .dashboard-hero {
-    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
+    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
     align-items: end;
     padding: 1.5rem;
   }

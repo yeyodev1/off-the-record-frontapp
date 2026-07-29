@@ -1,29 +1,43 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import ModuleTable from '@/components/ModuleTable.vue'
 import { getModuleConfig } from '@/config/modules'
 import { resourceService } from '@/services/resources'
 import { useUiStore } from '@/stores/ui'
 
 const route = useRoute()
+const router = useRouter()
 const uiStore = useUiStore()
 const loading = ref(false)
 const rows = ref<Record<string, unknown>[]>([])
 const total = ref(0)
 const query = ref('')
+type ArticleStatusFilter = 'all' | 'draft' | 'scheduled' | 'published'
+const statusFilter = ref<ArticleStatusFilter>('all')
+const articleFilters: { key: ArticleStatusFilter; label: string }[] = [
+  { key: 'all', label: 'Todos' },
+  { key: 'draft', label: 'Borradores' },
+  { key: 'scheduled', label: 'Programados' },
+  { key: 'published', label: 'Publicados' },
+]
 
-const currentModule = computed(() => getModuleConfig(String(route.path).replace(/^\//, '')))
+const currentModule = computed(() => getModuleConfig(String(route.meta.moduleKey || '')))
 const moduleTheme = computed(() => currentModule.value?.presentation.variant || 'operator')
+const isArticleModule = computed(() => currentModule.value?.key === 'articles')
+const visibleRows = computed(() => {
+  if (!isArticleModule.value || statusFilter.value === 'all') return rows.value
+  return rows.value.filter((row) => row.status === statusFilter.value)
+})
 
 const heroStats = computed(() => {
   const module = currentModule.value
   if (!module) return []
 
   return [
-    { label: module.presentation.badges[0] || 'Estado', value: module.title },
-    { label: module.presentation.badges[1] || 'Modo', value: module.accent.toUpperCase() },
-    { label: module.presentation.badges[2] || 'Total', value: String(total.value) },
+    { label: 'Acción', value: module.key === 'articles' ? 'Publicar' : 'Gestionar' },
+    { label: 'Acceso', value: module.key === 'users' ? 'Administradores' : 'Equipo editorial' },
+    { label: 'Total', value: String(total.value) },
   ]
 })
 
@@ -33,11 +47,7 @@ async function loadRecords() {
   loading.value = true
 
   try {
-    const response = await resourceService.list<Record<string, unknown>>(currentModule.value.apiPath, {
-      search: query.value,
-      limit: 25,
-      page: 1,
-    })
+    const response = await resourceService.list<Record<string, unknown>>(currentModule.value.apiPath, { search: query.value })
 
     rows.value = response.data
     total.value = response.total
@@ -51,11 +61,26 @@ async function loadRecords() {
 
 function openCreateModal() {
   if (!currentModule.value) return
+  if (currentModule.value.key === 'articles') {
+    void router.push('/admin/articles/new')
+    return
+  }
   uiStore.openEditor(currentModule.value.key, 'create')
+}
+
+function setStatusFilter(status: ArticleStatusFilter) {
+  statusFilter.value = status
 }
 
 function handleEdit(row: Record<string, unknown>) {
   if (!currentModule.value) return
+
+  if (currentModule.value.key === 'articles') {
+    const id = String(row._id || row.id || '')
+    if (id) void router.push(`/admin/articles/${id}/edit`)
+    return
+  }
+
   uiStore.openEditor(currentModule.value.key, 'edit', row)
 }
 
@@ -64,7 +89,7 @@ async function handleRemove(row: Record<string, unknown>) {
   const id = String(row._id || row.id || '')
   if (!id) return
 
-  await resourceService.remove(`${currentModule.value.apiPath}/${id}`)
+  await resourceService.remove(currentModule.value.deletePath(id))
   await loadRecords()
 }
 
@@ -101,6 +126,36 @@ onBeforeUnmount(() => {
 
 <template>
   <div v-if="currentModule" class="module-page" :class="[`module-page--${moduleTheme}`]">
+    <template v-if="isArticleModule">
+      <section class="article-workspace">
+        <div class="article-workspace__header">
+          <div>
+            <span class="section-label">Publicaciones</span>
+            <h2>Artículos</h2>
+            <p>Administra borradores, publicaciones programadas y noticias publicadas.</p>
+          </div>
+          <button type="button" class="primary-button" @click="openCreateModal"><i class="fa-solid fa-plus"></i>Nueva publicación</button>
+        </div>
+
+        <div class="article-workspace__toolbar">
+          <div class="status-filter" aria-label="Filtrar artículos por estado">
+            <button v-for="option in articleFilters" :key="option.key" type="button" :class="{ active: statusFilter === option.key }" @click="setStatusFilter(option.key)"><span>{{ option.label }}</span></button>
+          </div>
+          <label class="search-pill"><i class="fa-solid fa-magnifying-glass"></i><input v-model="query" type="search" placeholder="Buscar por título o contenido" aria-label="Buscar artículos" /></label>
+        </div>
+
+        <div class="article-workspace__summary">
+          <span><i class="fa-solid fa-layer-group"></i>{{ visibleRows.length }} artículos visibles</span>
+          <span><i class="fa-solid fa-clock"></i>Las publicaciones programadas se activan automáticamente.</span>
+        </div>
+
+        <section class="article-workspace__table module-card">
+          <ModuleTable :columns="currentModule.columns" :rows="visibleRows" :loading="loading" @edit="handleEdit" @remove="handleRemove" />
+        </section>
+      </section>
+    </template>
+
+    <template v-else>
     <section class="module-hero surface-card">
       <div class="module-hero__copy">
         <span class="module-hero__kicker eyebrow">
@@ -129,7 +184,7 @@ onBeforeUnmount(() => {
 
         <button type="button" class="primary-button" @click="openCreateModal">
           <i class="fa-solid fa-plus" aria-hidden="true"></i>
-          Nuevo registro
+          {{ currentModule.key === 'articles' ? 'Nueva publicación' : 'Nuevo registro' }}
         </button>
       </div>
     </section>
@@ -160,15 +215,17 @@ onBeforeUnmount(() => {
       <aside class="module-card module-card--aside surface-card">
         <span class="section-label">Acciones</span>
         <h3 class="section-title">Flujo editorial</h3>
-        <p>
-          Usa el modal global para crear o editar sin romper la lectura de la página.
-          La navegación y el ritmo visual se mantienen consistentes en todo el sistema.
+        <p v-if="currentModule.key === 'articles'">
+          Como administrador puedes guardar borradores, programar una fecha futura, publicar de inmediato o eliminar una noticia.
+        </p>
+        <p v-else>
+          Usa el formulario para crear o editar registros desde esta vista.
         </p>
 
         <div class="module-card__facts">
           <article>
             <span>Estado</span>
-            <strong>{{ moduleTheme }}</strong>
+            <strong>{{ currentModule.title }}</strong>
           </article>
           <article>
             <span>Total</span>
@@ -177,6 +234,7 @@ onBeforeUnmount(() => {
         </div>
       </aside>
     </section>
+    </template>
   </div>
 </template>
 
@@ -187,6 +245,79 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 1rem;
 }
+
+.article-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.article-workspace__header,
+.article-workspace__toolbar,
+.article-workspace__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.article-workspace__header {
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at right top, rgba(200, 57, 43, 0.2), transparent 34%),
+    radial-gradient(circle at 65% 100%, rgba(32, 148, 210, 0.14), transparent 40%),
+    linear-gradient(145deg, #121f3c, #0b1429);
+
+  > div { min-width: 0; }
+  h2 { margin-top: 0.25rem; color: $text-light; font-family: var(--font-display); font-size: clamp(2.2rem, 5vw, 4rem); letter-spacing: -0.06em; }
+  p { margin-top: 0.5rem; color: rgba(246, 241, 232, 0.72); }
+}
+
+.article-workspace__toolbar {
+  padding: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: rgba(16, 28, 54, 0.8);
+}
+
+.status-filter {
+  display: flex;
+  gap: 0.35rem;
+  flex: 1 1 420px;
+  overflow-x: auto;
+
+  button {
+    flex: 0 0 auto;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 0.6rem 0.85rem;
+    background: transparent;
+    color: rgba(246, 241, 232, 0.68);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.86rem;
+    transition: color 180ms ease, background 180ms ease, border-color 180ms ease;
+
+    &:hover { color: $text-light; }
+    &.active { color: $text-light; border-color: rgba(255, 176, 168, 0.55); background: rgba(200, 57, 43, 0.22); }
+  }
+}
+
+.article-workspace__toolbar .search-pill { flex: 1 1 280px; width: auto; }
+
+.article-workspace__summary {
+  padding: 0 0.25rem;
+  color: rgba(246, 241, 232, 0.68);
+  font-size: 0.9rem;
+
+  span { display: inline-flex; align-items: center; gap: 0.45rem; }
+  i { color: $accent-red; }
+}
+
+.article-workspace__table { width: 100%; }
 
 .module-page--editorial .module-hero,
 .module-page--broadcast .module-hero {
@@ -312,6 +443,13 @@ onBeforeUnmount(() => {
   padding: 1rem;
   display: grid;
   gap: 1rem;
+  color: $text-light;
+  background: linear-gradient(145deg, #121f3c, #0b1429);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+
+  .section-title {
+    color: $text-light;
+  }
 }
 
 .module-card__head {
@@ -326,8 +464,8 @@ onBeforeUnmount(() => {
   width: 100%;
   padding: 0.85rem 1rem;
   border-radius: 999px;
-  border: 1px solid rgba(1, 13, 39, 0.1);
-  background: rgba(1, 13, 39, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.07);
 
   i {
     color: $accent-red;
@@ -339,17 +477,17 @@ onBeforeUnmount(() => {
     border: 0;
     background: transparent;
     outline: none;
-    color: $primary-dark;
+    color: $text-light;
   }
 }
 
 .module-card--aside {
   background:
-    radial-gradient(circle at top right, rgba(200, 57, 43, 0.08), transparent 24%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 246, 242, 0.96));
+    radial-gradient(circle at top right, rgba(200, 57, 43, 0.2), transparent 30%),
+    linear-gradient(145deg, #162a4a, #0b1429);
 
   p {
-    color: rgba(1, 13, 39, 0.68);
+    color: rgba(246, 241, 232, 0.72);
     line-height: 1.65;
   }
 }
@@ -362,8 +500,8 @@ onBeforeUnmount(() => {
   article {
     padding: 0.95rem;
     border-radius: 20px;
-    background: rgba(1, 13, 39, 0.03);
-    border: 1px solid rgba(1, 13, 39, 0.08);
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   span {
@@ -371,7 +509,7 @@ onBeforeUnmount(() => {
     text-transform: uppercase;
     letter-spacing: 0.16em;
     font-size: 0.68rem;
-    color: rgba(1, 13, 39, 0.54);
+    color: rgba(246, 241, 232, 0.62);
   }
 
   strong {
@@ -379,7 +517,7 @@ onBeforeUnmount(() => {
     margin-top: 0.25rem;
     font-family: var(--font-display);
     font-size: 1.3rem;
-    color: $primary-dark;
+    color: $text-light;
     letter-spacing: -0.04em;
   }
 }
