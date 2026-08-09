@@ -9,6 +9,7 @@ import { notificationsApi } from '@/services/api'
 import { formatRelative } from '@/composables/useFormat'
 import AppDrawer from '@/components/ui/AppDrawer.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import type { AppNotification } from '@/types'
 
 const route = useRoute()
@@ -120,9 +121,19 @@ async function refreshAll() {
   void router.replace({ query: { ...route.query, r: String(Date.now()) } })
 }
 
+const salirAbierto = ref(false)
+const saliendo = ref(false)
+
+function pedirSalir() {
+  salirAbierto.value = true
+}
+
 async function signOut() {
+  saliendo.value = true
   await session.signOut()
   toasts.info('Sesión cerrada')
+  salirAbierto.value = false
+  saliendo.value = false
   router.push('/entrar')
 }
 
@@ -275,7 +286,7 @@ onBeforeUnmount(() => {
             </span>
           </RouterLink>
 
-          <button class="rshell__icon rshell__icon--out" type="button" aria-label="Salir" @click="signOut">
+          <button class="rshell__icon rshell__icon--out" type="button" aria-label="Salir" @click="pedirSalir">
             <i class="fa-solid fa-right-from-bracket" aria-hidden="true" />
           </button>
         </div>
@@ -376,6 +387,18 @@ onBeforeUnmount(() => {
         </div>
       </Transition>
     </Teleport>
+
+
+    <ConfirmDialog
+      v-model="salirAbierto"
+      title="¿Cerrar sesión?"
+      message="Se cerrará tu sesión en este navegador. Tendrás que volver a entrar con tu correo y contraseña."
+      confirm-label="Cerrar sesión"
+      cancel-label="Seguir aquí"
+      tone="danger"
+      :loading="saliendo"
+      @confirm="signOut"
+    />
 
     <AppDrawer v-model="notificationsOpen" title="Notificaciones" icon="fa-regular fa-bell">
       <div v-if="notifications.length" class="rnotif">

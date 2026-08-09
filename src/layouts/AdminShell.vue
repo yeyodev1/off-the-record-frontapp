@@ -9,6 +9,7 @@ import { formatRelative } from '@/composables/useFormat'
 import AppBadge from '@/components/ui/AppBadge.vue'
 import AppDrawer from '@/components/ui/AppDrawer.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import type { AppNotification } from '@/types'
 
 const route = useRoute()
@@ -58,9 +59,19 @@ async function markRead(item: AppNotification) {
   }
 }
 
+const salirAbierto = ref(false)
+const saliendo = ref(false)
+
+function pedirSalir() {
+  salirAbierto.value = true
+}
+
 async function signOut() {
+  saliendo.value = true
   await session.signOut()
   toasts.info('Sesión cerrada', 'Hasta la próxima.')
+  salirAbierto.value = false
+  saliendo.value = false
   router.push('/entrar')
 }
 
@@ -148,7 +159,7 @@ onMounted(loadNotifications)
                 <RouterLink class="shell__menu-item" to="/lector">
                   <i class="fa-solid fa-book-open-reader" aria-hidden="true" /> Vista de lector
                 </RouterLink>
-                <button class="shell__menu-item shell__menu-item--danger" type="button" @click="signOut">
+                <button class="shell__menu-item shell__menu-item--danger" type="button" @click="pedirSalir">
                   <i class="fa-solid fa-right-from-bracket" aria-hidden="true" /> Cerrar sesión
                 </button>
               </div>
@@ -200,6 +211,17 @@ onMounted(loadNotifications)
     </Teleport>
 
     <!-- Panel de notificaciones -->
+    <ConfirmDialog
+      v-model="salirAbierto"
+      title="¿Cerrar sesión?"
+      message="Se cerrará tu sesión en este navegador. Tendrás que volver a entrar con tu correo y contraseña."
+      confirm-label="Cerrar sesión"
+      cancel-label="Seguir aquí"
+      tone="danger"
+      :loading="saliendo"
+      @confirm="signOut"
+    />
+
     <AppDrawer
       v-model="notificationsOpen"
       title="Notificaciones"
