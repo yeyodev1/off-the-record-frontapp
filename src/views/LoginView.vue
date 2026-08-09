@@ -1,45 +1,39 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { authService, legacyAuthService } from '@/services/auth'
-import { useUserStore } from '@/stores/user'
+import { useRoute, useRouter } from 'vue-router'
+import { useSessionStore } from '@/stores/session'
+import { useToastStore } from '@/stores/toast'
+import { apiErrorMessage } from '@/services/http'
+import AppButton from '@/components/ui/AppButton.vue'
+import AppField from '@/components/ui/AppField.vue'
 
 const router = useRouter()
-const userStore = useUserStore()
+const route = useRoute()
+const session = useSessionStore()
+const toasts = useToastStore()
+
 const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
-const error = ref('')
+const formError = ref('')
 
 async function submit() {
-  error.value = ''
+  formError.value = ''
+
+  if (!email.value.trim() || !password.value) {
+    formError.value = 'Ingresa tu correo y contraseña.'
+    return
+  }
+
   loading.value = true
-
   try {
-    const payload = { email: email.value, password: password.value }
-    const [currentAttempt, legacyAttempt] = await Promise.allSettled([authService.signIn(payload), legacyAuthService.signIn(payload)])
-    const currentResponse = currentAttempt.status === 'fulfilled' ? currentAttempt.value : null
-    const legacyResponse = legacyAttempt.status === 'fulfilled' ? legacyAttempt.value : null
-
-    if (!currentResponse && !legacyResponse) {
-      throw currentAttempt.status === 'rejected' ? currentAttempt.reason : legacyAttempt.status === 'rejected' ? legacyAttempt.reason : new Error('No se pudo iniciar sesión')
-    }
-
-    const roleId = Number(currentResponse?.user?.roleId || legacyResponse?.user?.roleId)
-    userStore.setSession({
-      token: currentResponse?.accessToken || null,
-      legacyToken: legacyResponse?.accessToken || null,
-      id: currentResponse?.user?.id || currentResponse?.user?._id || legacyResponse?.user?.id || legacyResponse?.user?._id,
-      name: currentResponse?.user?.name || legacyResponse?.user?.name || email.value,
-      email: currentResponse?.user?.email || legacyResponse?.user?.email || email.value,
-      roleId,
-    })
-
-    if (currentResponse?.refreshToken) localStorage.setItem('refresh_token', currentResponse.refreshToken)
-    await router.push([1, 3].includes(roleId) ? '/admin/dashboard' : '/reader')
-  } catch (err: unknown) {
-    error.value = typeof err === 'object' && err !== null && 'message' in err ? String(err.message) : 'No se pudo iniciar sesión'
+    const user = await session.signIn(email.value.trim(), password.value)
+    toasts.success(`Bienvenido, ${user.name}`, 'Sesión iniciada correctamente.')
+    const next = typeof route.query.next === 'string' ? route.query.next : session.homeRoute
+    router.push(next)
+  } catch (error) {
+    formError.value = apiErrorMessage(error, 'No pudimos iniciar tu sesión.')
   } finally {
     loading.value = false
   }
@@ -47,52 +41,238 @@ async function submit() {
 </script>
 
 <template>
-  <main class="login-page">
-    <RouterLink to="/" class="login-page__brand">OFF THE RECORD</RouterLink>
+  <div class="login">
+    <!-- Panel editorial -->
+    <section class="login__hero">
+      <div class="login__hero-inner">
+        <RouterLink class="login__brand" to="/">
+          <img src="/otr.svg" alt="" width="42" height="42" />
+          <span>Off The Record</span>
+        </RouterLink>
 
-    <section class="login-card" aria-labelledby="login-title">
-      <div class="login-card__mark"><i class="fa-solid fa-microphone-lines" aria-hidden="true"></i></div>
-      <p class="login-card__eyebrow">Acceso editorial</p>
-      <h1 id="login-title">Bienvenido de vuelta</h1>
-      <p class="login-card__intro">Ingresa con las credenciales creadas por el administrador.</p>
+        <h1>
+          Periodismo de investigación<br />
+          <em>que no se publica en ningún otro lado.</em>
+        </h1>
 
-      <form @submit.prevent="submit">
-        <label>
-          <span>Correo electrónico</span>
-          <input v-model="email" type="email" autocomplete="email" required placeholder="nombre@correo.com" />
-        </label>
-        <label>
-          <span>Contraseña</span>
-          <div class="password-field">
-            <input v-model="password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" required placeholder="Tu contraseña" />
-            <button type="button" :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'" @click="showPassword = !showPassword">
-              <i class="fa-solid" :class="showPassword ? 'fa-eye-slash' : 'fa-eye'" aria-hidden="true"></i>
+        <p class="login__hero-text">
+          Sala de redacción para reportajes, actualizaciones programadas, infografías interactivas y distribución
+          directa a clientes por Signal.
+        </p>
+
+        <ul class="login__features">
+          <li><i class="fa-solid fa-wand-magic-sparkles" /> Agente IA para imágenes, audio e infografías</li>
+          <li><i class="fa-solid fa-clock-rotate-left" /> Programación de actualizaciones</li>
+          <li><i class="fa-solid fa-chart-simple" /> Estadística de lo más leído por secciones</li>
+          <li><i class="fa-solid fa-eye" /> Acuses de lectura por persona</li>
+        </ul>
+      </div>
+
+      <span class="login__grain" aria-hidden="true" />
+    </section>
+
+    <!-- Formulario -->
+    <section class="login__form-wrap">
+      <form class="login__form" @submit.prevent="submit">
+        <header class="login__form-head">
+          <p class="login__eyebrow">Acceso restringido</p>
+          <h2>Ingresa a la redacción</h2>
+          <p class="login__sub">Las cuentas las crea el equipo administrador.</p>
+        </header>
+
+        <AppField label="Correo" icon="fa-regular fa-envelope" required>
+          <input v-model="email" type="email" autocomplete="username" placeholder="tucorreo@offtherecord.ec" />
+        </AppField>
+
+        <AppField label="Contraseña" icon="fa-solid fa-lock" required :error="formError">
+          <div class="login__password">
+            <input
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              autocomplete="current-password"
+              placeholder="••••••••"
+            />
+            <button type="button" :aria-label="showPassword ? 'Ocultar' : 'Mostrar'" @click="showPassword = !showPassword">
+              <i :class="showPassword ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye'" />
             </button>
           </div>
-        </label>
-        <p v-if="error" class="error" role="alert">{{ error }}</p>
-        <button class="submit" type="submit" :disabled="loading">
-          {{ loading ? 'Ingresando...' : 'Iniciar sesión' }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-        </button>
+        </AppField>
+
+        <AppButton type="submit" size="lg" block :loading="loading" trailing-icon="fa-solid fa-arrow-right">
+          Entrar
+        </AppButton>
+
+        <p class="login__note">
+          <i class="fa-solid fa-circle-info" />
+          ¿Perdiste el acceso? Escríbele a un administrador para restablecer tu contraseña.
+        </p>
       </form>
     </section>
-  </main>
+  </div>
 </template>
 
-<style lang="scss" scoped>
-.login-page { min-height: 100svh; display: grid; place-items: center; padding: 1.5rem; color: #f7f2e9; background: radial-gradient(circle at 20% 0%, rgba(180, 56, 43, .24), transparent 30%), #0b1328; }
-.login-page__brand { position: fixed; top: 1.5rem; left: 1.5rem; color: inherit; font-family: var(--font-display); font-weight: 800; font-size: .9rem; letter-spacing: .12em; }
-.login-card { width: min(100%, 430px); padding: clamp(2rem, 7vw, 3.5rem); border: 1px solid rgba(247, 242, 233, .14); border-radius: 24px; background: rgba(12, 23, 54, .76); box-shadow: 0 24px 80px rgba(0, 0, 0, .28); backdrop-filter: blur(18px); }
-.login-card__mark { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 1.8rem; border-radius: 50%; background: #c8392b; }
-.login-card__eyebrow { color: #efb5a8; font-size: .72rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-h1 { margin: .55rem 0 .7rem; font-family: var(--font-display); font-size: clamp(2.1rem, 7vw, 3.1rem); line-height: .95; letter-spacing: -.06em; }
-.login-card__intro { color: rgba(247, 242, 233, .7); line-height: 1.6; }
-form { display: grid; gap: 1.1rem; margin-top: 2rem; }
-label { display: grid; gap: .45rem; color: rgba(247, 242, 233, .82); font-size: .82rem; font-weight: 700; letter-spacing: .04em; }
-input { width: 100%; border: 1px solid rgba(247, 242, 233, .18); border-radius: 10px; padding: .9rem 1rem; background: rgba(255, 255, 255, .07); color: #fff; outline: none; }
-input::placeholder { color: rgba(247, 242, 233, .45); }
-input:focus { border-color: #efb5a8; box-shadow: 0 0 0 3px rgba(200, 57, 43, .22); }
-.password-field { position: relative; }.password-field input { padding-right: 3rem; }.password-field button { position: absolute; inset: 0 0 0 auto; width: 3rem; border: 0; background: transparent; color: #efb5a8; cursor: pointer; }
-.submit { width: 100%; border: 0; border-radius: 10px; padding: 1rem; background: #c8392b; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }.submit:disabled { opacity: .65; cursor: wait; }
-.error { padding: .75rem; border-radius: 8px; background: rgba(239, 68, 68, .18); color: #fecaca; font-size: .9rem; }
+<style scoped lang="scss">
+.login {
+  @include row(0, stretch);
+  min-height: 100vh;
+
+  @include tablet {
+    flex-direction: column;
+  }
+}
+
+.login__hero {
+  position: relative;
+  @include col(0, stretch);
+  justify-content: center;
+  flex: 1 1 52%;
+  padding: var(--s-9) var(--s-8);
+  background:
+    radial-gradient(800px 400px at 20% 10%, rgba(200, 57, 43, 0.22), transparent 60%),
+    radial-gradient(700px 500px at 90% 90%, rgba(123, 108, 246, 0.18), transparent 60%),
+    var(--ink-850);
+  border-inline-end: 1px solid var(--line);
+  overflow: hidden;
+
+  @include tablet {
+    flex: 0 0 auto;
+    padding: var(--s-7) var(--s-5);
+    border-inline-end: none;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+.login__hero-inner {
+  @include col(var(--s-5));
+  position: relative;
+  z-index: 2;
+  max-width: 520px;
+
+  h1 {
+    font-size: clamp(30px, 4.4vw, 46px);
+    line-height: 1.08;
+
+    em {
+      font-style: italic;
+      color: var(--brand-strong);
+    }
+  }
+}
+
+.login__brand {
+  @include row(var(--s-3), center);
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--text-strong);
+}
+
+.login__hero-text {
+  font-size: 15px;
+  color: var(--text-muted);
+  max-width: 46ch;
+}
+
+.login__features {
+  @include col(var(--s-2));
+  list-style: none;
+
+  li {
+    @include row(var(--s-3), center);
+    font-size: 14px;
+    color: var(--text-muted);
+
+    i {
+      width: 20px;
+      color: var(--gold);
+      font-size: 12px;
+    }
+  }
+}
+
+.login__grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.4) 0,
+    rgba(255, 255, 255, 0.4) 1px,
+    transparent 1px,
+    transparent 6px
+  );
+  pointer-events: none;
+}
+
+.login__form-wrap {
+  @include row(0, center, center);
+  flex: 1 1 48%;
+  padding: var(--s-8) var(--s-6);
+
+  @include mobile {
+    padding: var(--s-6) var(--s-4);
+  }
+}
+
+.login__form {
+  @include col(var(--s-4));
+  width: 100%;
+  max-width: 400px;
+  animation: login-in 500ms var(--ease);
+}
+
+@keyframes login-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+.login__form-head {
+  @include col(var(--s-1));
+  margin-bottom: var(--s-2);
+
+  h2 {
+    font-size: 26px;
+  }
+}
+
+.login__eyebrow {
+  @include eyebrow;
+}
+
+.login__sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.login__password {
+  position: relative;
+
+  button {
+    position: absolute;
+    inset-inline-end: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    padding: 4px;
+
+    &:hover {
+      color: var(--text);
+    }
+  }
+
+  input {
+    padding-inline-end: 40px;
+  }
+}
+
+.login__note {
+  @include row(var(--s-2), flex-start);
+  font-size: 12px;
+  color: var(--text-dim);
+
+  i {
+    margin-top: 3px;
+  }
+}
 </style>
