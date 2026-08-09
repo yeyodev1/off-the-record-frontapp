@@ -1,41 +1,93 @@
-@forward 'colorVariables.module.scss';
-@forward 'fonts.module.scss';
+/* Injected into every SFC via vite.config.ts.
+   Only tokens + mixins here — no rendered CSS. */
 
 @use "sass:color";
 @use "sass:math";
 
-@function _to-percent($value) {
-  @if type-of($value) == 'number' and unit($value) == '%' {
-    @return $value;
+@forward "tokens.scss";
+
+/* Flex helpers — the app intentionally never uses CSS grid. */
+@mixin row($gap: var(--s-3), $align: center, $justify: flex-start) {
+  display: flex;
+  flex-direction: row;
+  align-items: $align;
+  justify-content: $justify;
+  gap: $gap;
+}
+
+@mixin col($gap: var(--s-3), $align: stretch) {
+  display: flex;
+  flex-direction: column;
+  align-items: $align;
+  gap: $gap;
+}
+
+@mixin wrap($gap: var(--s-4)) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $gap;
+}
+
+@mixin card($padding: var(--s-5)) {
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: $padding;
+}
+
+@mixin focus-ring($color: var(--line-focus)) {
+  outline: none;
+  box-shadow: 0 0 0 3px $color;
+}
+
+@mixin truncate($lines: 1) {
+  @if $lines == 1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  } @else {
+    display: -webkit-box;
+    -webkit-line-clamp: $lines;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
-  @return $value * 1%;
 }
 
-@function lighten($c, $amount, $method: 'adjust') {
-  $pct: _to-percent($amount);
-  @if $method == 'scale' {
-    @return color.scale($c, $lightness: $pct);
+@mixin scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-500) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
   }
-  @return color.adjust($c, $lightness: $pct);
-}
 
-@function darken($c, $amount, $method: 'adjust') {
-  $pct: _to-percent($amount);
-  @if $method == 'scale' {
-    @return color.scale($c, $lightness: -$pct);
+  &::-webkit-scrollbar-thumb {
+    background: var(--ink-500);
+    border-radius: var(--r-pill);
   }
-  @return color.adjust($c, $lightness: -$pct);
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@mixin mobile {
+  @media (max-width: 720px) {
+    @content;
+  }
 }
 
-body {
-  background:
-    radial-gradient(circle at top right, rgba(1, 13, 39, 0.16), transparent 28%),
-    radial-gradient(circle at bottom left, rgba(200, 57, 43, 0.12), transparent 24%),
-    var(--bg);
+@mixin tablet {
+  @media (max-width: 1024px) {
+    @content;
+  }
+}
+
+@mixin eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-dim);
 }

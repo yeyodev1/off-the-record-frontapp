@@ -1,0 +1,110 @@
+/* =====================================================================
+   Off The Record — design tokens
+   Dark editorial newsroom. Layout is flex-only across the whole app.
+   ===================================================================== */
+
+:root {
+  /* ---------------------------------------------------------------
+     Paleta de anderssonboscan.ec — navy #010D27, rojo #c8392b,
+     dorado #c9a84c, crema #f5f2ed. Las superficies son una rampa
+     construida sobre el navy de marca, no grises neutros.
+     --------------------------------------------------------------- */
+
+  /* Superficies */
+  --ink-900: #01081a;
+  --ink-850: #010d27;
+  --ink-800: #04122f;
+  --ink-750: #08183b;
+  --ink-700: #0d1f49;
+  --ink-600: #142a5b;
+  --ink-500: #1f3a73;
+
+  --surface: var(--ink-800);
+  --surface-raised: var(--ink-750);
+  --surface-sunken: var(--ink-850);
+  --surface-hover: var(--ink-700);
+
+  /* Cristal de barras superiores y laterales */
+  --glass: rgba(1, 13, 39, 0.84);
+  --glass-soft: rgba(1, 13, 39, 0.72);
+
+  /* Texto — la crema de marca en lugar de blanco puro */
+  --text: #f5f2ed;
+  --text-strong: #fefefe;
+  --text-muted: #9aa8c4;
+  --text-dim: #6b7a99;
+
+  /* Marca */
+  --brand: #c8392b;
+  --brand-soft: rgba(200, 57, 43, 0.16);
+  --brand-line: rgba(200, 57, 43, 0.42);
+  --brand-strong: #e0594a; /* aclarado: el #c8392b puro no contrasta sobre navy */
+  --brand-deep: #8a1f14;
+
+  --gold: #c9a84c;
+  --gold-soft: rgba(201, 168, 76, 0.14);
+  --ocean: #2094d2;
+  --ocean-soft: rgba(32, 148, 210, 0.14);
+  --iris: #7b6cf6;
+  --iris-soft: rgba(123, 108, 246, 0.14);
+  --moss: #57a773;
+  --moss-soft: rgba(87, 167, 115, 0.14);
+
+  /* Rosado, no rojo: el rojo ya es la marca y se confundiría. */
+  --danger: #ff6b7a;
+  --danger-soft: rgba(255, 107, 122, 0.14);
+
+  /* Bordes */
+  --line: rgba(245, 242, 237, 0.09);
+  --line-strong: rgba(245, 242, 237, 0.18);
+  --line-focus: rgba(200, 57, 43, 0.6);
+
+  /* Tipografía */
+  --font-display: "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-ui: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Radios */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  /* Espaciado */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-7: 32px;
+  --s-8: 40px;
+  --s-9: 56px;
+
+  /* Sombras */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 12px 28px -14px rgba(0, 0, 0, 0.75);
+  --shadow-lg: 0 32px 64px -28px rgba(0, 0, 0, 0.85);
+  --shadow-glow: 0 0 0 1px var(--brand-line), 0 18px 44px -20px rgba(200, 57, 43, 0.55);
+
+  /* Movimiento */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-fast: 140ms;
+  --t-base: 220ms;
+  --t-slow: 420ms;
+
+  /* Layout */
+  --sidebar-w: 264px;
+  --topbar-h: 68px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-fast: 0ms;
+    --t-base: 0ms;
+    --t-slow: 0ms;
+  }
+}
