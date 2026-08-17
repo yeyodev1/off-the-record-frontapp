@@ -322,6 +322,9 @@ export const aiApi = {
   }) {
     return http.post<{ data: { kept: string; discarded: number } }>('ai/infographic-posters/choose', payload)
   },
+  infographicDiscard(publicIds: string[]) {
+    return http.post<{ data: { discarded: number } }>('ai/infographic-posters/discard', { publicIds })
+  },
   photos(body: string, hint = '') {
     return http.post<{ data: StockPhotoSet }>('ai/photos', { body, hint })
   },
