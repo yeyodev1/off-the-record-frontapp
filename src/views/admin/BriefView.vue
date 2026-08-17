@@ -4,6 +4,7 @@ import { analyticsApi } from '@/services/api'
 import { apiErrorMessage } from '@/services/http'
 import { useToastStore } from '@/stores/toast'
 import { formatDate, formatIndicator, formatNumber } from '@/composables/useFormat'
+import { renderBriefImage } from '@/composables/useBriefImage'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import AppPanel from '@/components/ui/AppPanel.vue'
 import AppButton from '@/components/ui/AppButton.vue'
@@ -35,6 +36,39 @@ async function load() {
     toasts.error('No pudimos armar el resumen', apiErrorMessage(error))
   } finally {
     loading.value = false
+  }
+}
+
+const exporting = ref(false)
+
+/**
+ * El resumen viaja a Signal como imagen, no como texto plano: se dibuja el
+ * afiche, se intenta dejar en el portapapeles y si el navegador no deja
+ * (Safari, permisos), se descarga el PNG.
+ */
+async function exportBriefImage() {
+  if (!brief.value || exporting.value) return
+  exporting.value = true
+
+  try {
+    const blob = await renderBriefImage(brief.value)
+
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+      toasts.success('Imagen copiada', 'Pégala directamente en Signal.')
+    } catch {
+      const url = URL.createObjectURL(blob)
+      const enlace = document.createElement('a')
+      enlace.href = url
+      enlace.download = `resumen-${String(brief.value.date).slice(0, 10)}.png`
+      enlace.click()
+      URL.revokeObjectURL(url)
+      toasts.success('Imagen descargada', 'Adjúntala en Signal.')
+    }
+  } catch (error) {
+    toasts.error('No se pudo generar la imagen', apiErrorMessage(error, 'Inténtalo de nuevo.'))
+  } finally {
+    exporting.value = false
   }
 }
 
@@ -77,7 +111,10 @@ onMounted(load)
     >
       <template #actions>
         <AppButton variant="outline" icon="fa-solid fa-rotate" @click="load">Actualizar</AppButton>
-        <AppButton icon="fa-regular fa-copy" @click="copyBrief">Copiar para Signal</AppButton>
+        <AppButton variant="outline" icon="fa-regular fa-copy" @click="copyBrief">Copiar texto</AppButton>
+        <AppButton icon="fa-regular fa-image" :disabled="exporting" @click="exportBriefImage">
+          {{ exporting ? 'Generando…' : 'Imagen para Signal' }}
+        </AppButton>
       </template>
     </PageHeader>
 

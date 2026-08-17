@@ -11,6 +11,54 @@ const props = defineProps<{ item: ContentItem; compact?: boolean }>()
 const blocks = computed(() => props.item.blocks || [])
 
 /* ------------------------------------------------------------------ */
+/* Foto de portada                                                     */
+/* ------------------------------------------------------------------ */
+
+/** La portada abre el reportaje, como en el sitio del cliente. */
+const heroUrl = computed(() => {
+  const url = props.item.coverUrl || ''
+  return url && !url.startsWith('data:') ? url : ''
+})
+
+const heroCaption = computed(() => {
+  if (!heroUrl.value) return ''
+  const block = blocks.value.find(
+    (b) => b.kind === 'media' && b.assetKind === 'image' && b.assetUrl === heroUrl.value,
+  )
+  return block?.caption || ''
+})
+
+/** Bloques del cuerpo sin la portada: ya se pintó arriba y repetirla confunde. */
+const bodyBlocks = computed<ContentBlock[]>(() => {
+  const hero = heroUrl.value
+  if (!hero) return blocks.value
+
+  let quitada = false
+  const resultado: ContentBlock[] = []
+
+  for (const block of blocks.value) {
+    if (!quitada && block.kind === 'media' && block.assetKind === 'image' && block.assetUrl === hero) {
+      quitada = true
+      continue
+    }
+
+    if (!quitada && block.html?.includes(hero)) {
+      const limpio = block.html.replace(/<img\b[^>]*>/gi, (tag) => {
+        if (quitada || !tag.includes(hero)) return tag
+        quitada = true
+        return ''
+      })
+      resultado.push(limpio === block.html ? block : { ...block, html: limpio })
+      continue
+    }
+
+    resultado.push(block)
+  }
+
+  return resultado
+})
+
+/* ------------------------------------------------------------------ */
 /* Visor de imágenes                                                   */
 /* ------------------------------------------------------------------ */
 
@@ -24,6 +72,10 @@ const visorAbierto = computed(() => visorIndice.value >= 0)
  */
 const imagenes = computed<LightboxImage[]>(() => {
   const lista: LightboxImage[] = []
+
+  if (heroUrl.value) {
+    lista.push({ src: heroUrl.value, caption: heroCaption.value || props.item.title })
+  }
 
   for (const block of blocks.value) {
     if (block.kind === 'media' && block.assetKind === 'image' && block.assetUrl) {
@@ -72,10 +124,18 @@ function specOf(block: ContentBlock) {
 </script>
 
 <template>
-  <article :class="['reader', { 'reader--compact': compact }]">
-    <header class="reader__head" :style="{ '--accent': item.accentColor }">
+  <article :class="['reader', { 'reader--compact': compact }]" :style="{ '--accent': item.accentColor }">
+    <figure v-if="heroUrl" class="reader__hero">
+      <AppBadge v-if="item.categoryName" class="reader__hero-badge" :color="item.accentColor">
+        {{ item.categoryName }}
+      </AppBadge>
+      <img :src="heroUrl" :alt="heroCaption || item.title" class="otr-zoomable" @click="abrir(heroUrl)" />
+      <figcaption v-if="heroCaption">{{ heroCaption }}</figcaption>
+    </figure>
+
+    <header class="reader__head">
       <div class="reader__meta">
-        <AppBadge v-if="item.categoryName" :color="item.accentColor">{{ item.categoryName }}</AppBadge>
+        <AppBadge v-if="item.categoryName && !heroUrl" :color="item.accentColor">{{ item.categoryName }}</AppBadge>
         <span>{{ formatDate(item.publishedAt || item.createdAt) }}</span>
         <span v-if="item.readingMinutes">· {{ item.readingMinutes }} min de lectura</span>
         <span v-if="item.stats?.views">· {{ formatNumber(item.stats.views) }} lecturas</span>
@@ -92,7 +152,7 @@ function specOf(block: ContentBlock) {
     </header>
 
     <div class="reader__body otr-prose" @click="alClicEnCuerpo">
-      <template v-for="block in blocks" :key="block.uid">
+      <template v-for="block in bodyBlocks" :key="block.uid">
         <hr
           v-if="block.kind === 'divider'"
           class="otr-divider"
@@ -194,6 +254,32 @@ function specOf(block: ContentBlock) {
   @include col(var(--s-6));
   max-width: 760px;
   width: 100%;
+}
+
+.reader__hero {
+  @include col(var(--s-2));
+  position: relative;
+
+  img {
+    width: 100%;
+    max-height: 520px;
+    object-fit: cover;
+    border-radius: var(--r-lg);
+    border-bottom: 3px solid var(--accent, var(--brand));
+    cursor: zoom-in;
+  }
+
+  figcaption {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+}
+
+.reader__hero-badge {
+  position: absolute;
+  top: var(--s-3);
+  left: var(--s-3);
+  z-index: 1;
 }
 
 .reader__head {
