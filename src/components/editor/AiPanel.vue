@@ -9,7 +9,16 @@ import AppButton from '@/components/ui/AppButton.vue'
 import AppBadge from '@/components/ui/AppBadge.vue'
 import AppSelect from '@/components/ui/AppSelect.vue'
 import InfographicView from '@/components/charts/InfographicView.vue'
-import type { AiCapabilities, Attachment, ContentBlock, InfographicSpec } from '@/types'
+import type {
+  AiCapabilities,
+  Attachment,
+  ContentBlock,
+  InfographicPoster,
+  InfographicPosterSet,
+  InfographicSpec,
+  StockPhoto,
+  StockPhotoSet,
+} from '@/types'
 
 const props = defineProps<{ body: string; title: string }>()
 
@@ -26,6 +35,12 @@ const capabilities = ref<AiCapabilities | null>(null)
 const busy = ref('')
 const headlines = ref<{ title: string; angle: string; weight: number }[]>([])
 const infographic = ref<InfographicSpec | null>(null)
+const posterSet = ref<InfographicPosterSet | null>(null)
+const choosingPoster = ref('')
+/** Todos los candidatos generados y aún no elegidos, incluso de tandas anteriores. */
+const pendingPosterIds = new Set<string>()
+const photoSet = ref<StockPhotoSet | null>(null)
+const choosingPhoto = ref('')
 const imageStyle = ref('fotoperiodismo editorial')
 const videoJob = ref('')
 
@@ -109,6 +124,118 @@ function insertInfographic() {
     meta: infographic.value as unknown as Record<string, unknown>,
   })
   toasts.success('Infografía insertada', 'Aparece como bloque interactivo en el cuerpo.')
+}
+
+async function makePosters() {
+  if (!assertBody()) return
+  if (busy.value === 'posters') return
+  posterSet.value = null
+  await run(
+    'posters',
+    () => aiApi.infographicPosters(props.body),
+    ({ data }) => {
+      posterSet.value = data
+      data.posters.forEach((p) => pendingPosterIds.add(p.publicId))
+      toasts.success(`${data.posters.length} pósters generados`, 'Escoge el que se queda; los demás se descartan.')
+    },
+  )
+}
+
+/** El editor escoge un póster: se inserta en la nota y los otros dos se borran de Cloudinary. */
+async function choosePoster(poster: InfographicPoster) {
+  if (!posterSet.value || choosingPoster.value) return
+  choosingPoster.value = poster.publicId
+
+  pendingPosterIds.delete(poster.publicId)
+  const discard = [...pendingPosterIds]
+  const name = posterSet.value.brief.headline || `Infografía · ${props.title || 'reportaje'}`
+  const caption = [posterSet.value.brief.altText || name, posterSet.value.photoCredit].filter(Boolean).join(' — ')
+
+  try {
+    await aiApi.infographicChoose({
+      keep: { url: poster.url, publicId: poster.publicId, bytes: poster.bytes, name },
+      discard,
+    })
+
+    emit('add-attachment', {
+      uid: `ai_${Math.random().toString(36).slice(2, 10)}`,
+      kind: 'image',
+      url: poster.url,
+      name,
+      mime: 'image/png',
+      bytes: poster.bytes,
+      caption,
+      provider: 'gemini',
+      publicId: poster.publicId,
+      source: 'ai',
+    })
+    emit('add-block', {
+      ...emptyBlock('media'),
+      assetUrl: poster.url,
+      assetKind: 'image',
+      caption,
+    })
+
+    posterSet.value = null
+    pendingPosterIds.clear()
+    toasts.success('Infografía elegida', 'Se insertó en la nota; los otros candidatos se descartaron.')
+  } catch (error) {
+    pendingPosterIds.add(poster.publicId)
+    toasts.error('No se pudo guardar la elección', apiErrorMessage(error))
+  } finally {
+    choosingPoster.value = ''
+  }
+}
+
+async function makePhotos() {
+  if (!assertBody()) return
+  photoSet.value = null
+  await run(
+    'photos',
+    () => aiApi.photos(props.body),
+    ({ data }) => {
+      photoSet.value = data
+      toasts.success(`Fotos de «${data.query}»`, 'Escoge la que se queda; se importa a Cloudinary con su crédito.')
+    },
+  )
+}
+
+/** El editor escoge una foto: se importa a Cloudinary y entra a la nota con su crédito. */
+async function choosePhoto(photo: StockPhoto) {
+  if (!photoSet.value || choosingPhoto.value) return
+  choosingPhoto.value = photo.url
+
+  const name = `Foto · ${photoSet.value.query}`
+
+  try {
+    const { data } = await aiApi.photoChoose({ url: photo.url, name, credit: photo.credit })
+
+    emit('add-attachment', {
+      uid: `ai_${Math.random().toString(36).slice(2, 10)}`,
+      kind: 'image',
+      url: data.url,
+      name,
+      mime: 'image/jpeg',
+      bytes: data.bytes,
+      caption: photo.credit,
+      provider: 'wikimedia',
+      publicId: data.publicId,
+      source: 'ai',
+    })
+    emit('add-block', {
+      ...emptyBlock('media'),
+      assetUrl: data.url,
+      assetKind: 'image',
+      caption: `${photoSet.value.altText} — ${photo.credit}`,
+    })
+
+    photoSet.value = null
+    toasts.success('Foto elegida', 'Se importó a Cloudinary y quedó como bloque en la nota.')
+  } catch (error) {
+    toasts.error('No se pudo importar la foto', apiErrorMessage(error))
+  } finally {
+    choosingPhoto.value = ''
+  }
 }
 
 async function makeImage() {
@@ -306,6 +433,26 @@ onMounted(async () => {
         <AppButton
           size="sm"
           variant="soft"
+          icon="fa-solid fa-panorama"
+          :loading="busy === 'posters'"
+          :disabled="!capabilities?.infographicImage"
+          @click="makePosters"
+        >
+          Póster
+        </AppButton>
+        <AppButton
+          size="sm"
+          variant="soft"
+          icon="fa-solid fa-camera"
+          :loading="busy === 'photos'"
+          :disabled="!capabilities?.photos"
+          @click="makePhotos"
+        >
+          Fotos
+        </AppButton>
+        <AppButton
+          size="sm"
+          variant="soft"
           icon="fa-regular fa-image"
           :loading="busy === 'image'"
           :disabled="!capabilities?.image"
@@ -362,6 +509,54 @@ onMounted(async () => {
           <p class="ai__block-title"><i class="fa-solid fa-chart-pie" /> Infografía interactiva</p>
           <InfographicView :spec="infographic" />
           <AppButton size="sm" icon="fa-solid fa-arrow-down" @click="insertInfographic">Insertar en el cuerpo</AppButton>
+        </section>
+      </Transition>
+
+      <!-- Fotos de archivo: el editor escoge una y se importa con su crédito -->
+      <Transition name="rise">
+        <section v-if="photoSet" class="ai__block">
+          <p class="ai__block-title"><i class="fa-solid fa-camera" /> Escoge la foto de «{{ photoSet.query }}»</p>
+          <div class="ai__posters ai__posters--photos">
+            <button
+              v-for="photo in photoSet.photos"
+              :key="photo.url"
+              type="button"
+              class="ai__poster"
+              :disabled="Boolean(choosingPhoto)"
+              @click="choosePhoto(photo)"
+            >
+              <img :src="photo.url" :alt="photo.title" loading="lazy" />
+              <span>
+                <i v-if="choosingPhoto === photo.url" class="fa-solid fa-circle-notch fa-spin" />
+                {{ photo.license }}
+              </span>
+            </button>
+          </div>
+          <p class="ai__poster-hint">Fuente: Wikimedia Commons. La elegida se importa a Cloudinary y su crédito va en la leyenda.</p>
+        </section>
+      </Transition>
+
+      <!-- Pósters candidatos: el editor escoge uno y los demás se descartan -->
+      <Transition name="rise">
+        <section v-if="posterSet" class="ai__block">
+          <p class="ai__block-title"><i class="fa-solid fa-panorama" /> Escoge el póster que se queda</p>
+          <div class="ai__posters">
+            <button
+              v-for="poster in posterSet.posters"
+              :key="poster.publicId"
+              type="button"
+              class="ai__poster"
+              :disabled="Boolean(choosingPoster)"
+              @click="choosePoster(poster)"
+            >
+              <img :src="poster.url" :alt="`${poster.styleLabel} — ${posterSet.brief.altText}`" loading="lazy" />
+              <span>
+                <i v-if="choosingPoster === poster.publicId" class="fa-solid fa-circle-notch fa-spin" />
+                {{ poster.styleLabel }}
+              </span>
+            </button>
+          </div>
+          <p class="ai__poster-hint">Al escoger uno se inserta en la nota y los otros se borran de Cloudinary.</p>
         </section>
       </Transition>
 
@@ -456,6 +651,56 @@ onMounted(async () => {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--gold);
+}
+
+.ai__posters {
+  @include row(var(--s-3), stretch);
+
+  > * {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.ai__posters--photos .ai__poster img {
+  aspect-ratio: 4 / 3;
+}
+
+.ai__poster {
+  @include col(var(--s-2));
+  padding: var(--s-2);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+
+  img {
+    width: 100%;
+    border-radius: var(--r-sm);
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+  }
+
+  span {
+    @include eyebrow;
+    font-size: 9px;
+    text-align: center;
+  }
+
+  &:hover:not(:disabled) {
+    border-color: var(--brand-line);
+    background: var(--brand-soft);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+
+.ai__poster-hint {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .ai__rendering {
