@@ -141,6 +141,23 @@ async function makePosters() {
   )
 }
 
+/** Si ningún candidato convence: borra la tanda actual y genera tres nuevos. */
+async function retryPosters() {
+  if (!posterSet.value || busy.value || choosingPoster.value) return
+
+  const stale = [...pendingPosterIds]
+  pendingPosterIds.clear()
+  posterSet.value = null
+
+  if (stale.length) {
+    aiApi.infographicDiscard(stale).catch(() => {
+      /* si falla el borrado, el choose posterior no los conoce; no bloquea el reintento */
+    })
+  }
+
+  await makePosters()
+}
+
 /** El editor escoge un póster: se inserta en la nota y los otros dos se borran de Cloudinary. */
 async function choosePoster(poster: InfographicPoster) {
   if (!posterSet.value || choosingPoster.value) return
@@ -539,7 +556,19 @@ onMounted(async () => {
       <!-- Pósters candidatos: el editor escoge uno y los demás se descartan -->
       <Transition name="rise">
         <section v-if="posterSet" class="ai__block">
-          <p class="ai__block-title"><i class="fa-solid fa-panorama" /> Escoge el póster que se queda</p>
+          <div class="ai__block-head">
+            <p class="ai__block-title"><i class="fa-solid fa-panorama" /> Escoge el póster que se queda</p>
+            <AppButton
+              size="sm"
+              variant="soft"
+              icon="fa-solid fa-rotate-right"
+              :loading="busy === 'posters'"
+              :disabled="Boolean(choosingPoster)"
+              @click="retryPosters"
+            >
+              Reintentar
+            </AppButton>
+          </div>
           <div class="ai__posters">
             <button
               v-for="poster in posterSet.posters"
@@ -556,7 +585,7 @@ onMounted(async () => {
               </span>
             </button>
           </div>
-          <p class="ai__poster-hint">Al escoger uno se inserta en la nota y los otros se borran de Cloudinary.</p>
+          <p class="ai__poster-hint">Al escoger uno se inserta en la nota y los otros se borran de Cloudinary. Si ninguno convence, reintenta y salen tres nuevos.</p>
         </section>
       </Transition>
 
@@ -660,6 +689,12 @@ onMounted(async () => {
     flex: 1;
     min-width: 0;
   }
+}
+
+.ai__block-head {
+  @include row(var(--s-3), center);
+  justify-content: space-between;
+  flex-wrap: wrap;
 }
 
 .ai__posters--photos .ai__poster img {
