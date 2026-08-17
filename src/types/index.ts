@@ -367,7 +367,39 @@ export interface AiCapabilities {
   audio: boolean
   video: boolean
   infographic: boolean
+  infographicImage?: boolean
+  photos?: boolean
   storage: boolean
+}
+
+export interface InfographicPoster {
+  url: string
+  publicId: string
+  bytes: number
+  style: string
+  styleLabel: string
+}
+
+export interface InfographicPosterSet {
+  brief: { headline: string; altText: string; source: string; subject?: string }
+  posters: InfographicPoster[]
+  photoCredit?: string
+  photoSource?: string
+}
+
+export interface StockPhoto {
+  url: string
+  pageUrl: string
+  title: string
+  author: string
+  license: string
+  credit: string
+}
+
+export interface StockPhotoSet {
+  query: string
+  altText: string
+  photos: StockPhoto[]
 }
 
 export interface AccessLogEntry {
