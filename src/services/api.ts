@@ -14,7 +14,9 @@ import type {
   Indicator,
   IndicatorPreset,
   ChannelStatus,
+  InfographicPosterSet,
   InfographicSpec,
+  StockPhotoSet,
   MessagingSettings,
   ReaderFacets,
   SectionStat,
@@ -310,6 +312,24 @@ export const aiApi = {
   },
   infographic(body: string, hint = '') {
     return http.post<{ data: InfographicSpec }>('ai/infographic', { body, hint })
+  },
+  infographicPosters(body: string, hint = '') {
+    return http.post<{ data: InfographicPosterSet }>('ai/infographic-posters', { body, hint })
+  },
+  infographicChoose(payload: {
+    keep: { url: string; publicId: string; bytes: number; name: string }
+    discard: string[]
+  }) {
+    return http.post<{ data: { kept: string; discarded: number } }>('ai/infographic-posters/choose', payload)
+  },
+  photos(body: string, hint = '') {
+    return http.post<{ data: StockPhotoSet }>('ai/photos', { body, hint })
+  },
+  photoChoose(payload: { url: string; name: string; credit: string }) {
+    return http.post<{ data: { url: string; publicId: string; bytes: number; credit: string } }>(
+      'ai/photos/choose',
+      payload,
+    )
   },
   image(payload: { prompt?: string; body?: string; style?: string }) {
     return http.post<{ data: { url: string; prompt: string; altText: string; provider: string } }>('ai/image', payload)
