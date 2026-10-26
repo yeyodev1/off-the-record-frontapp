@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import ImageLightbox from '@/components/content/ImageLightbox.vue'
 import InfographicView from '@/components/charts/InfographicView.vue'
 import AppBadge from '@/components/ui/AppBadge.vue'
+import DOMPurify from 'dompurify'
 import { formatDate, formatNumber } from '@/composables/useFormat'
 import type { ContentBlock, ContentItem, InfographicSpec, LightboxImage } from '@/types'
 
@@ -107,6 +108,15 @@ function alClicEnCuerpo(event: MouseEvent) {
   if (src) abrir(src)
 }
 
+/**
+ * El cuerpo llega como HTML del editor (y del sistema viejo). Se sanea antes
+ * de pintarlo: un `<script>` o un `onerror` colado en un bloque podría leer
+ * la sesión guardada en el navegador de quien lo abre.
+ */
+function limpio(html: string) {
+  return DOMPurify.sanitize(html, { ADD_ATTR: ['target'] })
+}
+
 function styleOf(block: ContentBlock) {
   return {
     textAlign: block.align,
@@ -163,15 +173,15 @@ function specOf(block: ContentBlock) {
           v-else-if="block.kind === 'intertitle' || block.kind === 'subheading'"
           class="otr-intertitle"
           :style="{ ...styleOf(block), '--otr-accent': block.color || 'var(--brand)' }"
-          v-html="block.html || block.text"
+          v-html="limpio(block.html || block.text)"
         />
 
-        <h2 v-else-if="block.kind === 'heading'" :style="styleOf(block)" v-html="block.html || block.text" />
+        <h2 v-else-if="block.kind === 'heading'" :style="styleOf(block)" v-html="limpio(block.html || block.text)" />
 
         <blockquote
           v-else-if="block.kind === 'quote'"
           :style="{ ...styleOf(block), borderInlineStartColor: block.color || 'var(--brand)' }"
-          v-html="block.html || block.text"
+          v-html="limpio(block.html || block.text)"
         />
 
         <aside
@@ -182,7 +192,7 @@ function specOf(block: ContentBlock) {
             background: block.background || 'rgba(255,255,255,0.03)',
             borderInlineStartColor: block.color || 'var(--gold)',
           }"
-          v-html="block.html || block.text"
+          v-html="limpio(block.html || block.text)"
         />
 
         <component
@@ -215,7 +225,7 @@ function specOf(block: ContentBlock) {
           :spec="specOf(block)"
         />
 
-        <div v-else :style="styleOf(block)" v-html="block.html || `<p>${block.text}</p>`" />
+        <div v-else :style="styleOf(block)" v-html="limpio(block.html || `<p>${block.text}</p>`)" />
       </template>
     </div>
 

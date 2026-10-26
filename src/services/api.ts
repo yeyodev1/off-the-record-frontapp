@@ -253,9 +253,9 @@ export const settingsApi = {
     return http.put<{ data: MessagingSettings; message: string }>('settings', payload)
   },
   channels() {
-    return http.get<{ data: { telegram: ChannelStatus; signal: ChannelStatus } }>('settings/channels')
+    return http.get<{ data: { telegram: ChannelStatus; signal: ChannelStatus; email?: ChannelStatus } }>('settings/channels')
   },
-  test(channel: 'telegram' | 'signal', to?: string) {
+  test(channel: 'telegram' | 'signal' | 'email', to?: string) {
     return http.post<{ message: string }>(`settings/channels/${channel}/test`, to ? { to } : {})
   },
 }

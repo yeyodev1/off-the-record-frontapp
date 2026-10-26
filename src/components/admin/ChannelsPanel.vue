@@ -10,7 +10,7 @@ import type { ChannelStatus, MessagingSettings } from '@/types'
 
 const props = defineProps<{
   settings: MessagingSettings
-  status: { telegram: ChannelStatus; signal: ChannelStatus } | null
+  status: { telegram: ChannelStatus; signal: ChannelStatus; email?: ChannelStatus } | null
   canEdit: boolean
 }>()
 
@@ -55,10 +55,12 @@ async function save(channel: 'telegram' | 'signal') {
   }
 }
 
-async function test(channel: 'telegram' | 'signal') {
+async function test(channel: 'telegram' | 'signal' | 'email') {
   testing.value = channel
   try {
-    const { message } = await settingsApi.test(channel, testTarget[channel] || undefined)
+    // El correo de prueba va siempre a la cuenta propia: no lleva destino.
+    const to = channel === 'email' ? undefined : testTarget[channel] || undefined
+    const { message } = await settingsApi.test(channel, to)
     toasts.success('Mensaje enviado', message)
   } catch (error) {
     toasts.error('No llegó', apiErrorMessage(error))
@@ -182,6 +184,39 @@ function badgeFor(state?: ChannelStatus) {
             @click="test('signal')"
           >
             Probar
+          </AppButton>
+        </div>
+      </footer>
+    </article>
+
+    <!-- ---------------- Correo ---------------- -->
+    <article class="chan__card">
+      <header class="chan__head">
+        <h3><i class="fa-regular fa-envelope" aria-hidden="true" /> Correo</h3>
+        <span :class="['chan__state', `chan__state--${badgeFor(status?.email).tone}`]">
+          {{ badgeFor(status?.email).label }}
+        </span>
+      </header>
+
+      <p v-if="status?.email?.detail" class="chan__detail">{{ status.email.detail }}</p>
+
+      <p class="chan__how">
+        Envío por <strong>Resend</strong> desde el dominio verificado <code>otr.com.ec</code>. Cada lector recibe su
+        propio correo, nunca una lista compartida. La clave vive en el servidor (<code>RESEND_API_KEY</code>), no en
+        este panel. Las alertas técnicas van a <code>ALERT_EMAILS</code>.
+      </p>
+
+      <footer class="chan__foot">
+        <div class="chan__test">
+          <AppButton
+            variant="ghost"
+            size="sm"
+            icon="fa-solid fa-paper-plane"
+            :loading="testing === 'email'"
+            :disabled="!canEdit"
+            @click="test('email')"
+          >
+            Enviarme una prueba
           </AppButton>
         </div>
       </footer>

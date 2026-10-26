@@ -35,6 +35,7 @@ const CHANNELS: { value: NotificationChannel; label: string; icon: string }[] = 
   { value: 'app', label: 'Campana', icon: 'fa-regular fa-bell' },
   { value: 'telegram', label: 'Telegram', icon: 'fa-brands fa-telegram' },
   { value: 'signal', label: 'Signal', icon: 'fa-solid fa-comment-dots' },
+  { value: 'email', label: 'Correo', icon: 'fa-regular fa-envelope' },
 ]
 
 const active = computed(() => props.settings.auto.channels || ['app'])
