@@ -219,6 +219,8 @@ export interface AppUser {
   phone: string
   signalHandle: string
   telegramChatId: string
+  emailNotifications?: boolean
+  notifyEmail?: string
   organization: string
   position: string
   notes: string

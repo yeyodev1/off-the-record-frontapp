@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '@/services/api'
 import { apiErrorMessage } from '@/services/http'
@@ -32,7 +32,6 @@ function desdeSesion() {
     phone: session.user?.phone || '',
     position: session.user?.position || '',
     signalHandle: session.user?.signalHandle || '',
-    telegramChatId: session.user?.telegramChatId || '',
   }
 }
 
@@ -91,6 +90,91 @@ async function guardarPerfil() {
     errorPerfil.value = apiErrorMessage(error, 'No pudimos guardar tu perfil.')
   } finally {
     guardandoPerfil.value = false
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Telegram                                                            */
+/* ------------------------------------------------------------------ */
+
+const telegramConectado = computed(() => Boolean(session.user?.telegramChatId))
+const conectandoTelegram = ref(false)
+const esperandoTelegram = ref(false)
+
+/** Abre el bot con un enlace de un solo uso; al volver a la app se comprueba si quedó conectado. */
+async function conectarTelegram() {
+  conectandoTelegram.value = true
+  try {
+    const { data } = await authApi.telegramLink()
+    esperandoTelegram.value = true
+    document.addEventListener('visibilitychange', comprobarAlVolver)
+    window.location.href = data.url
+  } catch (error) {
+    toasts.error('No pudimos abrir Telegram', apiErrorMessage(error, 'Inténtalo de nuevo en unos minutos.'))
+  } finally {
+    conectandoTelegram.value = false
+  }
+}
+
+async function comprobarAlVolver() {
+  if (document.visibilityState !== 'visible') return
+  await comprobarTelegram()
+}
+
+async function comprobarTelegram() {
+  const user = await session.refreshProfile().catch(() => null)
+  if (user?.telegramChatId) {
+    esperandoTelegram.value = false
+    document.removeEventListener('visibilitychange', comprobarAlVolver)
+    toasts.success('Telegram conectado', 'Desde ahora recibirás las noticias allí.')
+  }
+}
+
+async function desconectarTelegram() {
+  conectandoTelegram.value = true
+  try {
+    const { data } = await authApi.updateMe({ telegramChatId: '' })
+    session.persist(data)
+    toasts.success('Telegram desconectado', 'Ya no recibirás noticias por Telegram.')
+  } catch (error) {
+    toasts.error('No pudimos desconectar Telegram', apiErrorMessage(error, 'Inténtalo de nuevo.'))
+  } finally {
+    conectandoTelegram.value = false
+  }
+}
+
+onBeforeUnmount(() => document.removeEventListener('visibilitychange', comprobarAlVolver))
+
+/* ------------------------------------------------------------------ */
+/* Noticias por correo                                                 */
+/* ------------------------------------------------------------------ */
+
+const correoActivo = computed(() => session.user?.emailNotifications !== false)
+const correoExtra = ref(session.user?.notifyEmail || '')
+const guardandoAvisos = ref(false)
+const errorAvisos = ref('')
+const extraCambio = computed(() => correoExtra.value.trim().toLowerCase() !== (session.user?.notifyEmail || ''))
+
+async function guardarAvisos(cambio: { emailNotifications?: boolean; notifyEmail?: string }) {
+  guardandoAvisos.value = true
+  errorAvisos.value = ''
+  try {
+    const { data } = await authApi.updateMe(cambio)
+    session.persist(data)
+    correoExtra.value = data.notifyEmail || ''
+    toasts.success(
+      'notifyEmail' in cambio
+        ? data.notifyEmail
+          ? `También te llegarán a ${data.notifyEmail}`
+          : 'Correo adicional quitado'
+        : data.emailNotifications === false
+          ? 'Noticias por correo desactivadas'
+          : 'Noticias por correo activadas',
+    )
+  } catch (error) {
+    errorAvisos.value = apiErrorMessage(error, 'No pudimos guardar el cambio.')
+  } finally {
+    guardandoAvisos.value = false
   }
 }
 
@@ -214,14 +298,9 @@ async function cambiarClave() {
             <AppField label="Cargo"><input v-model="perfil.position" type="text" /></AppField>
           </div>
 
-          <div class="cfg__row">
-            <AppField label="Signal" hint="Número al que te escribe el equipo">
-              <input v-model="perfil.signalHandle" type="text" placeholder="+593 99 000 0000" />
-            </AppField>
-            <AppField label="Telegram" hint="Escribe /start al bot para obtenerlo">
-              <input v-model="perfil.telegramChatId" type="text" placeholder="123456789" />
-            </AppField>
-          </div>
+          <AppField label="Signal" hint="Número al que te escribe el equipo">
+            <input v-model="perfil.signalHandle" type="text" placeholder="+593 99 000 0000" />
+          </AppField>
 
           <p v-if="errorPerfil" class="cfg__error">
             <i class="fa-solid fa-circle-exclamation" aria-hidden="true" /> {{ errorPerfil }}
@@ -283,6 +362,95 @@ async function cambiarClave() {
           <AppButton type="submit" icon="fa-solid fa-lock" :disabled="!claveLista" :loading="guardandoClave">
             Cambiar contraseña
           </AppButton>
+        </form>
+      </section>
+
+      <!-- ---------- Telegram ---------- -->
+      <section class="cfg__card">
+        <header class="cfg__head">
+          <h3><i class="fa-brands fa-telegram" aria-hidden="true" /> Noticias en Telegram</h3>
+          <AppBadge :tone="telegramConectado ? 'moss' : 'neutral'">
+            {{ telegramConectado ? 'Conectado' : 'Sin conectar' }}
+          </AppBadge>
+        </header>
+
+        <div class="cfg__form">
+          <p class="cfg__lead">
+            {{
+              telegramConectado
+                ? 'Te enviamos cada reportaje y actualización a tu Telegram en cuanto se publica.'
+                : 'Recibe cada reportaje y actualización en tu Telegram en cuanto se publica.'
+            }}
+          </p>
+
+          <div class="cfg__actions">
+            <AppButton
+              v-if="!telegramConectado"
+              icon="fa-brands fa-telegram"
+              :loading="conectandoTelegram"
+              @click="conectarTelegram"
+            >
+              Conectar Telegram
+            </AppButton>
+            <AppButton v-if="esperandoTelegram && !telegramConectado" variant="ghost" @click="comprobarTelegram">
+              Ya lo conecté
+            </AppButton>
+            <AppButton
+              v-if="telegramConectado"
+              variant="ghost"
+              icon="fa-solid fa-link-slash"
+              :loading="conectandoTelegram"
+              @click="desconectarTelegram"
+            >
+              Desconectar
+            </AppButton>
+          </div>
+
+          <ol v-if="!telegramConectado" class="cfg__steps">
+            <li>Instala Telegram en tu celular y crea tu cuenta, si aún no la tienes.</li>
+            <li>Pulsa <strong>Conectar Telegram</strong> aquí arriba.</li>
+            <li>Se abre el bot <strong>@otr_ec_bot</strong>: pulsa <strong>Iniciar</strong>.</li>
+            <li>El bot te confirma con un mensaje. Vuelve aquí y verás «Conectado».</li>
+          </ol>
+
+          <p class="cfg__note">
+            <i class="fa-regular fa-clock" aria-hidden="true" />
+            {{
+              telegramConectado
+                ? 'Para dejar de recibirlas, pulsa Desconectar o escribe /stop al bot.'
+                : 'Toma unos 5 minutos, incluso si tienes que instalar Telegram.'
+            }}
+          </p>
+        </div>
+      </section>
+
+      <!-- ---------- Correo ---------- -->
+      <section class="cfg__card">
+        <header class="cfg__head">
+          <h3><i class="fa-regular fa-envelope" aria-hidden="true" /> Noticias por correo</h3>
+          <AppBadge :tone="correoActivo ? 'moss' : 'neutral'">{{ correoActivo ? 'Activadas' : 'Desactivadas' }}</AppBadge>
+        </header>
+
+        <form class="cfg__form" @submit.prevent="guardarAvisos({ notifyEmail: correoExtra })">
+          <AppSwitch
+            :model-value="correoActivo"
+            :disabled="guardandoAvisos"
+            label="Recibir las noticias por correo"
+            :hint="`Te llegan a ${session.user?.email || 'tu correo'}`"
+            @update:model-value="guardarAvisos({ emailNotifications: $event })"
+          />
+
+          <AppField
+            label="Correo adicional (opcional)"
+            hint="Otro correo al que también te lleguen las noticias"
+            :error="errorAvisos"
+          >
+            <input v-model="correoExtra" type="email" autocomplete="email" placeholder="otro@correo.com" />
+          </AppField>
+
+          <footer v-if="extraCambio" class="cfg__actions">
+            <AppButton type="submit" icon="fa-solid fa-check" :loading="guardandoAvisos">Guardar</AppButton>
+          </footer>
         </form>
       </section>
 
@@ -483,6 +651,22 @@ async function cambiarClave() {
   @include row(var(--s-2), center);
   font-size: 12px;
   color: var(--danger);
+}
+
+.cfg__steps {
+  @include col(var(--s-1));
+  padding-inline-start: 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+
+  strong {
+    color: var(--text);
+  }
+}
+
+.cfg__lead {
+  font-size: 14px;
+  color: var(--text-muted);
 }
 
 .cfg__note {

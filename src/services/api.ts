@@ -49,6 +49,10 @@ export const authApi = {
   changePassword(currentPassword: string, newPassword: string) {
     return http.post<{ message: string }>('change-password', { currentPassword, newPassword })
   },
+  /** Enlace de un solo uso a t.me para conectar el chat de Telegram. */
+  telegramLink() {
+    return http.post<{ data: { url: string } }>('me/telegram-link')
+  },
   recover(email: string) {
     return http.post<{ message: string }>('recover-password', { email })
   },
