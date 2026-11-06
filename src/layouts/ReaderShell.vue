@@ -154,7 +154,7 @@ onBeforeUnmount(() => {
     <!-- ------- Barra lateral (escritorio) ------- -->
     <aside class="rshell__side">
       <RouterLink class="rshell__brand" to="/lector">
-        <img src="/otr.svg" alt="" width="32" height="32" />
+        <img src="/otr-mark.png" alt="" width="32" height="32" />
         <span>
           <strong>Off The Record</strong>
           <em>Tus lecturas</em>
@@ -248,7 +248,7 @@ onBeforeUnmount(() => {
         </button>
 
         <RouterLink class="rshell__top-brand" to="/lector">
-          <img src="/otr.svg" alt="" width="26" height="26" />
+          <img src="/otr-mark.png" alt="" width="26" height="26" />
           <strong>Off The Record</strong>
         </RouterLink>
 

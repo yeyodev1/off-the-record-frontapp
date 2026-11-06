@@ -32,7 +32,7 @@ onMounted(async () => {
   <div class="shared">
     <header class="shared__bar">
       <RouterLink class="shared__brand" to="/">
-        <img src="/otr.svg" alt="" width="30" height="30" />
+        <img src="/otr-mark.png" alt="" width="30" height="30" />
         <span>Off The Record</span>
       </RouterLink>
       <span class="shared__tag"><i class="fa-solid fa-lock" aria-hidden="true" /> Enlace privado</span>

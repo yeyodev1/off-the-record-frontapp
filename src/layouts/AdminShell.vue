@@ -91,7 +91,7 @@ onMounted(loadNotifications)
     <!-- Barra lateral (escritorio) -->
     <aside class="shell__side">
       <RouterLink class="shell__brand" to="/admin/panel">
-        <img src="/otr.svg" alt="" width="34" height="34" />
+        <img src="/otr-mark.png" alt="" width="34" height="34" />
         <span>
           <strong>Off The Record</strong>
           <em>Sala de redacción</em>
@@ -184,7 +184,7 @@ onMounted(loadNotifications)
           <Transition name="slide-right" appear>
             <nav class="mnav__panel">
               <div class="mnav__head">
-                <img src="/otr.svg" alt="" width="30" height="30" />
+                <img src="/otr-mark.png" alt="" width="30" height="30" />
                 <strong>Off The Record</strong>
                 <button type="button" aria-label="Cerrar" @click="mobileNavOpen = false">
                   <i class="fa-solid fa-xmark" aria-hidden="true" />

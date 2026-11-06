@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useToastStore } from '@/stores/toast'
 import { apiErrorMessage } from '@/services/http'
+import { authApi } from '@/services/api'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppField from '@/components/ui/AppField.vue'
 
@@ -38,6 +39,27 @@ async function submit() {
     loading.value = false
   }
 }
+
+const recovering = ref(false)
+
+/** El backend avisa a un administrador; la respuesta es igual exista o no el correo. */
+async function recover() {
+  formError.value = ''
+  if (!email.value.trim()) {
+    formError.value = 'Escribe tu correo arriba y vuelve a pulsar «¿Olvidaste tu contraseña?».'
+    return
+  }
+
+  recovering.value = true
+  try {
+    await authApi.recover(email.value.trim())
+    toasts.success('Solicitud enviada', 'Nuestro equipo restablecerá tu acceso y se pondrá en contacto contigo.')
+  } catch (error) {
+    formError.value = apiErrorMessage(error, 'No pudimos enviar la solicitud. Inténtalo de nuevo.')
+  } finally {
+    recovering.value = false
+  }
+}
 </script>
 
 <template>
@@ -46,8 +68,7 @@ async function submit() {
     <section class="login__hero">
       <div class="login__hero-inner">
         <RouterLink class="login__brand" to="/">
-          <img src="/otr.svg" alt="" width="42" height="42" />
-          <span>Off The Record</span>
+          <img src="/otr-logo.png" alt="Off The Record" width="220" height="83" />
         </RouterLink>
 
         <h1>
@@ -56,15 +77,15 @@ async function submit() {
         </h1>
 
         <p class="login__hero-text">
-          Sala de redacción para reportajes, actualizaciones programadas, infografías interactivas y distribución
-          directa a clientes por Signal.
+          Reportajes y actualizaciones exclusivos para nuestros suscriptores, con el contexto que no vas a encontrar
+          en los medios.
         </p>
 
         <ul class="login__features">
-          <li><i class="fa-solid fa-wand-magic-sparkles" /> Agente IA para imágenes, audio e infografías</li>
-          <li><i class="fa-solid fa-clock-rotate-left" /> Programación de actualizaciones</li>
-          <li><i class="fa-solid fa-chart-simple" /> Estadística de lo más leído por secciones</li>
-          <li><i class="fa-solid fa-eye" /> Acuses de lectura por persona</li>
+          <li><i class="fa-solid fa-newspaper" /> Reportajes de investigación con contexto completo</li>
+          <li><i class="fa-solid fa-bolt" /> Actualizaciones en cuanto ocurren</li>
+          <li><i class="fa-regular fa-bell" /> Te avisamos cuando hay algo nuevo</li>
+          <li><i class="fa-solid fa-mobile-screen" /> Léelo desde el celular o la computadora</li>
         </ul>
       </div>
 
@@ -75,13 +96,13 @@ async function submit() {
     <section class="login__form-wrap">
       <form class="login__form" @submit.prevent="submit">
         <header class="login__form-head">
-          <p class="login__eyebrow">Acceso restringido</p>
-          <h2>Ingresa a la redacción</h2>
-          <p class="login__sub">Las cuentas las crea el equipo administrador.</p>
+          <p class="login__eyebrow">Solo suscriptores</p>
+          <h2>Entra a tu cuenta</h2>
+          <p class="login__sub">Usa el correo con el que te suscribiste.</p>
         </header>
 
         <AppField label="Correo" icon="fa-regular fa-envelope" required>
-          <input v-model="email" type="email" autocomplete="username" placeholder="tucorreo@offtherecord.ec" />
+          <input v-model="email" type="email" autocomplete="username" placeholder="tucorreo@ejemplo.com" />
         </AppField>
 
         <AppField label="Contraseña" icon="fa-solid fa-lock" required :error="formError">
@@ -102,9 +123,13 @@ async function submit() {
           Entrar
         </AppButton>
 
+        <button type="button" class="login__forgot" :disabled="recovering" @click="recover">
+          {{ recovering ? 'Enviando…' : '¿Olvidaste tu contraseña?' }}
+        </button>
+
         <p class="login__note">
-          <i class="fa-solid fa-circle-info" />
-          ¿Perdiste el acceso? Escríbele a un administrador para restablecer tu contraseña.
+          <i class="fa-solid fa-lock" />
+          Contenido confidencial: tu cuenta es personal, no la compartas.
         </p>
       </form>
     </section>
@@ -160,10 +185,29 @@ async function submit() {
 }
 
 .login__brand {
-  @include row(var(--s-3), center);
-  font-family: var(--font-display);
-  font-size: 17px;
-  color: var(--text-strong);
+  align-self: flex-start;
+
+  img {
+    display: block;
+    width: clamp(160px, 22vw, 220px);
+    height: auto;
+  }
+}
+
+.login__forgot {
+  align-self: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+
+  &:hover:not(:disabled) {
+    color: var(--text);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
 }
 
 .login__hero-text {
@@ -175,6 +219,11 @@ async function submit() {
 .login__features {
   @include col(var(--s-2));
   list-style: none;
+
+  // En el celular el formulario debe verse sin hacer scroll.
+  @include mobile {
+    display: none;
+  }
 
   li {
     @include row(var(--s-3), center);
